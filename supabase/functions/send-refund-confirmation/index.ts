@@ -115,9 +115,8 @@ serve(async (req) => {
             <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
               <p style="margin: 5px 0;">Liventix - Your events, simplified</p>
               <p style="margin: 10px 0;">
-                <a href="https://liventix.com/refund-policy" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Refund Policy</a>
-                <a href="https://liventix.com/support" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Support</a>
-                <a href="https://liventix.com/terms" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Terms</a>
+                <a href="https://liventix.tech/privacy" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+                <a href="https://liventix.tech/terms" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Terms of Service</a>
               </p>
             </div>
 

@@ -50,9 +50,9 @@
 	<!-- iOS PERMISSIONS - REQUIRED FOR APP FEATURES   -->
 	<!-- ============================================== -->
 
-	<!-- Camera Access (for photo/video capture) -->
+	<!-- Camera Access (for photo/video capture and QR scanning) -->
 	<key>NSCameraUsageDescription</key>
-	<string>Liventix needs access to your camera to capture photos and videos for event posts.</string>
+	<string>Liventix needs access to your camera to capture photos and videos for event posts, and to scan ticket QR codes.</string>
 
 	<!-- Microphone Access (for video recording) -->
 	<key>NSMicrophoneUsageDescription</key>

@@ -259,18 +259,13 @@ export function useImpressionTracker({ items, currentIndex, userId, isSuspended 
     const item = items[currentIndex];
     if (!item) return;
 
-    console.log('[AD TRACKING] Switched to item:', {
-      index: currentIndex,
-      type: item.item_type,
-      id: item.item_id,
-      isPromoted: item.isPromoted,
-      hasPromotion: !!item.promotion,
-      promotionData: item.promotion ? {
+    // Debug logging only in development
+    if (import.meta.env.DEV && item.promotion) {
+      console.log('[AD TRACKING] Promoted item viewed:', {
+        index: currentIndex,
         campaignId: item.promotion.campaignId,
-        creativeId: item.promotion.creativeId,
-        placement: item.promotion.placement,
-      } : null,
-    });
+      });
+    }
 
     if (item.item_type === 'event') {
       const promotion = item.promotion

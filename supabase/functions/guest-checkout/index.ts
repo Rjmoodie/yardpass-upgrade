@@ -38,6 +38,7 @@ interface GuestCheckoutRequest {
   guest_code?: string | null;
   city?: string;  // Optional: for duplicate detection
   country?: string;  // Optional: for duplicate detection
+  theme?: string;  // Optional: theme preference ('night' for dark, 'stripe' for light)
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -59,6 +60,12 @@ serve(async (req) => {
     if (!payload || typeof payload !== "object") {
       return response({ error: "Invalid request" }, 400);
     }
+
+    // Get theme preference from payload (optional)
+    // Accepts 'dark'/'light' from client, or 'night'/'stripe' if already mapped
+    const themeFromClient = payload?.theme || 'light';
+    // Map to Stripe theme: 'dark' or 'night' -> 'night', everything else -> 'stripe'
+    const stripeTheme = (themeFromClient === 'night' || themeFromClient === 'dark') ? 'night' : 'stripe';
 
     const eventId = String(payload.event_id || "").trim();
     const contactEmailRaw = String(payload.contact_email || "").trim();
@@ -99,7 +106,7 @@ serve(async (req) => {
       throw new Error("Missing STRIPE_SECRET_KEY");
     }
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: "2023-10-16" });
+    const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" });
 
     const normalizedEmail = normalizeEmail(contactEmailRaw) ?? "";
     const requestedName = payload.contact_name?.trim() || "";
@@ -498,82 +505,85 @@ serve(async (req) => {
     // Phase 2.2.4: Check if operation already completed (idempotent retry)
     const { data: existingOp, error: checkError } = await supabaseService
       .rpc('check_stripe_idempotency', {
-        p_operation_type: 'checkout:create',
+        p_operation_type: 'payment_intent:create',
         p_operation_id: checkoutSessionId
       });
 
     if (checkError) {
       console.warn('[guest-checkout] Idempotency check failed (continuing):', checkError.message);
     } else if (existingOp?.is_completed && existingOp?.stripe_resource_id) {
-      // Operation already completed, return existing session
-      console.log('[guest-checkout] Idempotent request - returning existing session', {
+      // Operation already completed, return existing PaymentIntent
+      console.log('[guest-checkout] Idempotent request - returning existing PaymentIntent', {
         checkoutSessionId,
-        stripeSessionId: existingOp.stripe_resource_id
+        paymentIntentId: existingOp.stripe_resource_id
       });
-      return new Response(
-        JSON.stringify({
-          session_id: existingOp.stripe_resource_id,
-          session_url: null, // Embedded checkout doesn't use URL
-          idempotent: true
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      try {
+        const existingIntent = await stripe.paymentIntents.retrieve(existingOp.stripe_resource_id);
+        if (existingIntent.client_secret) {
+          return response({
+            client_secret: existingIntent.client_secret,
+            payment_intent_id: existingIntent.id,
+            checkout_session_id: checkoutSessionId,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            stripeTheme,
+            idempotent: true
+          });
         }
-      );
+      } catch (e) {
+        console.warn("[guest-checkout] Failed to retrieve existing PaymentIntent:", e);
+      }
     }
 
-    console.log("[guest-checkout] Creating Stripe checkout session...", {
+    console.log("[guest-checkout] Creating PaymentIntent for Custom Checkout...", {
       customerId,
       email: normalizedEmail,
       totalCents: pricing.totalCents
     });
 
-    // Create session with retry logic and circuit breaker
-    const session = await stripeCallWithResilience(
-      supabaseService,
-      () => stripe.checkout.sessions.create(
-        {
-          ui_mode: "embedded", // Enable embedded checkout
-          customer: customerId,
-          customer_email: customerId ? undefined : normalizedEmail,
-          line_items: lineItems,
-          mode: "payment",
-          return_url: `${siteUrl}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-          allow_promotion_codes: true,
-          billing_address_collection: "required",
-        expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutes from now
-        metadata: {
-          event_id: eventId,
-          user_id: userId,
-          guest_checkout: isNewUser ? "true" : "false",
-          hold_ids: JSON.stringify(reservationResult.hold_ids || []),
-          checkout_session_id: checkoutSessionId,
-          tiers: JSON.stringify(items.map((item) => ({ tier_id: item.tier_id, quantity: item.quantity }))),
-          contact_email: normalizedEmail,
-        },
-        payment_intent_data: {
-          description: `Tickets for ${event.title}`,
-          metadata: {
-            event_id: eventId,
-            user_id: userId,
-            checkout_session_id: checkoutSessionId,
-            contact_email: normalizedEmail,
-            total_tickets: items.reduce((sum, item) => sum + item.quantity, 0),
-          },
-        },
+    // ✅ Custom Checkout: Create PaymentIntent instead of Checkout Session
+    const paymentIntentConfig: Stripe.PaymentIntentCreateParams = {
+      amount: pricing.totalCents,
+      currency: (event.currency ?? "USD").toLowerCase(),
+      description: `Tickets for ${event.title}`,
+      customer: customerId,
+      payment_method_types: ['card'], // Card payments only
+      metadata: {
+        event_id: eventId,
+        user_id: userId,
+        guest_checkout: isNewUser ? "true" : "false",
+        hold_ids: JSON.stringify(reservationResult.hold_ids || []),
+        checkout_session_id: checkoutSessionId,
+        tiers: JSON.stringify(items.map((item) => ({ tier_id: item.tier_id, quantity: item.quantity }))),
+        contact_email: normalizedEmail,
+        total_tickets: items.reduce((sum, item) => sum + item.quantity, 0),
+        theme: stripeTheme, // For reference
       },
-      { idempotencyKey }),
-      { operationName: 'checkout.sessions.create' }
-    );
+    };
+
+    // Configure destination charges if organizer is fully onboarded
+    if (payoutDestination?.stripe_connect_id) {
+      if (payoutDestination.payouts_enabled && payoutDestination.details_submitted) {
+        paymentIntentConfig.application_fee_amount = pricing.platformFeeCents;
+        paymentIntentConfig.transfer_data = {
+          destination: payoutDestination.stripe_connect_id,
+        };
+      }
+    }
+
+    // Create PaymentIntent with retry logic and circuit breaker
+    const paymentIntent: Stripe.PaymentIntent = await stripeCallWithResilience(
+      supabaseService,
+      () => stripe.paymentIntents.create(paymentIntentConfig, { idempotencyKey }),
+      { operationName: 'paymentIntents.create' }
+    ) as Stripe.PaymentIntent;
 
     // Phase 2.2.4: Record successful idempotency operation
     try {
       const { error: recordError } = await supabaseService.rpc('record_stripe_idempotency', {
-        p_operation_type: 'checkout:create',
+        p_operation_type: 'payment_intent:create',
         p_operation_id: checkoutSessionId,
         p_stripe_idempotency_key: idempotencyKey,
-        p_stripe_resource_id: session.id,
+        p_stripe_resource_id: paymentIntent.id,
         p_user_id: userId || null,
         p_metadata: {
           event_id: eventId,
@@ -590,7 +600,11 @@ serve(async (req) => {
       console.warn('[guest-checkout] Failed to record idempotency (non-critical):', recordErr);
     }
 
-    console.log("[guest-checkout] ✅ Stripe session created:", session.id);
+    console.log("[guest-checkout] ✅ PaymentIntent created:", paymentIntent.id);
+    
+    if (!paymentIntent.client_secret) {
+      throw new Error("PaymentIntent created but no client_secret returned");
+    }
 
     const contactName = requestedName || profile?.display_name || (normalizedEmail ? normalizedEmail.split("@")[0] : "Guest");
     const contactPhone = requestedPhone || profile?.phone || null;
@@ -605,7 +619,7 @@ serve(async (req) => {
       userId,
       eventId,
       checkoutSessionId,
-      stripeSessionId: session.id
+      paymentIntentId: paymentIntent.id
     });
 
     let order;
@@ -618,7 +632,7 @@ serve(async (req) => {
           user_id: userId,
           event_id: eventId,
           checkout_session_id: checkoutSessionId,
-          stripe_session_id: session.id,
+          stripe_payment_intent_id: paymentIntent.id, // ✅ Store PaymentIntent ID
           status: "pending",
           subtotal_cents: pricing.subtotalCents,
           fees_cents: pricing.feesCents,
@@ -693,17 +707,19 @@ serve(async (req) => {
       contactSnapshot,
       verificationState: { email_verified: !isNewUser, risk_score: 0 },
       expressMethods: defaultExpressMethods,
-      stripeSessionId: session.id,
+      stripeSessionId: paymentIntent.id, // ✅ Store PaymentIntent ID (using stripeSessionId field for now)
       expiresAt: expiresAtIso,
       status: "pending",
     });
 
     return response({
-      client_secret: session.client_secret, // For embedded checkout
+      client_secret: paymentIntent.client_secret, // ✅ For Custom Checkout (Payment Element)
+      payment_intent_id: paymentIntent.id,
       checkout_session_id: checkoutSessionId,
       order_id: order.id,
       expires_at: expiresAtIso,
       pricing: buildPricingSnapshot(pricing),
+      stripeTheme,
     });
   } catch (error) {
     console.error("[guest-checkout] unexpected error", error);

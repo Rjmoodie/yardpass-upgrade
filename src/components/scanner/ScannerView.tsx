@@ -20,8 +20,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } from '@capacitor/barcode-scanner';
-import { LiventixSpinner } from '@/components/LoadingSpinner';
 import { getCapacitorState } from '@/lib/capacitor-init';
+
+// Note: We intentionally do NOT use barcode-detector polyfill for web browsers
+// because it requires loading WASM from an external CDN which can be blocked by CSP.
+// For browsers without native BarcodeDetector (Firefox, Safari), we gracefully
+// fall back to manual entry mode. Native apps use Capacitor BarcodeScanner.
 
 interface ScannerViewProps {
   eventId: string;
@@ -51,6 +55,18 @@ const RESULT_COPY: Record<ScanResultType, { label: string }> = {
   void: { label: 'Voided' },
 };
 
+// ✅ Static error messages moved outside component (no re-creation on render)
+const ERROR_MESSAGES: Record<string, string> = {
+  capacitor_missing: 'Camera scanner is not available. Please use manual code entry.',
+  plugin_unavailable: 'QR scanner needs to be enabled. Try again or use manual entry.',
+  permission_denied: 'Camera permission is required. Please enable it in your device Settings.',
+  default: 'Unable to start camera scanner. Please use manual code entry.',
+};
+
+function getUserFriendlyError(reason?: string): string {
+  return ERROR_MESSAGES[reason || 'default'] || ERROR_MESSAGES.default;
+}
+
 async function triggerHaptic(success: boolean) {
   try {
     if (Capacitor.isNativePlatform()) {
@@ -63,6 +79,10 @@ async function triggerHaptic(success: boolean) {
   }
 }
 
+// ✅ Duplicate cache pruning interval (only prune every 30 seconds)
+const DUPLICATE_CACHE_PRUNE_INTERVAL_MS = 30_000;
+const DUPLICATE_CACHE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
 export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -71,7 +91,14 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const detectorRef = useRef<any>();
   const cooldownRef = useRef<number>(0);
   const duplicateCache = useRef<Map<string, number>>(new Map());
+  const lastPruneRef = useRef<number>(Date.now()); // ✅ Track last prune time
   const scanLoopRef = useRef<(() => Promise<void>) | null>(null);
+  // ✅ Refs to avoid stale closure values in scan loop
+  const modeRef = useRef<'camera' | 'manual'>('camera');
+  const scanLockedRef = useRef(false);
+  // ✅ Mounting lock to prevent multiple simultaneous camera starts
+  const cameraStartingRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const [mode, setMode] = useState<'camera' | 'manual'>('camera');
   const [manualCode, setManualCode] = useState('');
@@ -83,24 +110,46 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanLocked, setScanLocked] = useState(false);
   const [availability, setAvailability] = useState<'checking' | 'available' | 'unavailable'>('checking');
+  // ✅ Proper offline detection with event listeners
+  const [offline, setOffline] = useState(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+
+  // ✅ Helper to update both state and ref atomically
+  const setScanLockedBoth = useCallback((value: boolean) => {
+    scanLockedRef.current = value;
+    setScanLocked(value);
+  }, []);
+
+  // ✅ Keep mode ref in sync with state
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  
+  // ✅ Track component mount state
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // ✅ Real offline/online listeners
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const goOnline = () => setOffline(false);
+    const goOffline = () => setOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   const isNative = Capacitor.isNativePlatform();
   const detectorSupported = useMemo(() => {
     if (isNative) return true; // Capacitor BarcodeScanner works on native
     return typeof window !== 'undefined' && 'BarcodeDetector' in window;
   }, [isNative]);
-
-  // User-friendly error messages
-  const ERROR_MESSAGES: Record<string, string> = {
-    capacitor_missing: 'Camera scanner is not available. Please use manual code entry.',
-    plugin_unavailable: 'QR scanner needs to be enabled. Try again or use manual entry.',
-    permission_denied: 'Camera permission is required. Please enable it in your device Settings.',
-    default: 'Unable to start camera scanner. Please use manual code entry.',
-  };
-
-  const getUserFriendlyError = (reason?: string): string => {
-    return ERROR_MESSAGES[reason || 'default'] || ERROR_MESSAGES.default;
-  };
 
   // Check if Capacitor scanner is ready to use (Step 5.1)
   const checkCapacitorScannerReady = useCallback(async (): Promise<{
@@ -176,42 +225,151 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     if (!isNative) {
       const track = streamRef.current?.getVideoTracks()?.[0];
       if (!track) return;
-      const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
+      // TypeScript doesn't know about torch capability, but it exists on many devices
+      const capabilities = (track.getCapabilities?.() as Record<string, unknown> | undefined) ?? {};
       if (!capabilities.torch) return;
       try {
-        await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+        await track.applyConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] });
         setTorchOn((prev) => !prev);
       } catch (err) {
-        console.error('Torch toggle failed', err);
+        console.warn('Torch toggle failed:', err);
         toast({ title: 'Torch unavailable', description: 'Unable to toggle flashlight on this device.' });
       }
     }
   }, [torchOn, toast, isNative]);
 
+  const appendHistory = useCallback((entry: ScanHistoryItem) => {
+    setHistory((prev) => [entry, ...prev].slice(0, 25));
+    setStatus(entry);
+  }, []);
+
+  const handlePayload = useCallback(async (payload: string) => {
+    // ✅ Use ref for logic check (stable, no re-renders)
+    if (!payload || scanLockedRef.current) return;
+    
+    // Set lock immediately to prevent double-scans
+    setScanLockedBoth(true);
+    
+    const now = Date.now();
+    
+    // ✅ Only prune duplicate cache periodically (not on every scan)
+    if (now - lastPruneRef.current > DUPLICATE_CACHE_PRUNE_INTERVAL_MS) {
+      lastPruneRef.current = now;
+      duplicateCache.current.forEach((timestamp, key) => {
+        if (now - timestamp > DUPLICATE_CACHE_EXPIRY_MS) {
+          duplicateCache.current.delete(key);
+        }
+      });
+    }
+    
+    if (now < cooldownRef.current) {
+      // Unlock if we're still in cooldown from a previous scan
+      setTimeout(() => setScanLockedBoth(false), 300);
+      return;
+    }
+    cooldownRef.current = now + SCAN_COOLDOWN_MS;
+
+    const cached = duplicateCache.current.get(payload);
+    if (cached && now - cached < 10_000) {
+      const entry: ScanHistoryItem = {
+        id: crypto.randomUUID(),
+        code: payload,
+        status: 'duplicate',
+        message: 'Already scanned recently',
+        timestamp: new Date().toISOString(),
+      };
+      appendHistory(entry);
+      await triggerHaptic(false);
+      // ✅ Unlock after showing duplicate
+      setTimeout(() => setScanLockedBoth(false), SCAN_COOLDOWN_MS);
+      return;
+    }
+
+    try {
+      const result = await validateTicket({ qr: payload, event_id: eventId });
+      const resultStatus = result.result as ScanResultType;
+      const copy = RESULT_COPY[resultStatus] ?? RESULT_COPY.invalid;
+      const message = result.message || copy.label;
+      const entry: ScanHistoryItem = {
+        id: crypto.randomUUID(),
+        code: payload,
+        status: resultStatus,
+        message,
+        timestamp: result.timestamp || new Date().toISOString(),
+      };
+      appendHistory(entry);
+      duplicateCache.current.set(payload, Date.now());
+      await triggerHaptic(resultStatus === 'valid');
+    } catch (err) {
+      console.warn('Validation error:', err);
+      const entry: ScanHistoryItem = {
+        id: crypto.randomUUID(),
+        code: payload,
+        status: 'invalid',
+        message: 'Unable to verify. Check connection.',
+        timestamp: new Date().toISOString(),
+      };
+      appendHistory(entry);
+      await triggerHaptic(false);
+    } finally {
+      // Unlock after cooldown period to give operator time to see result
+      setTimeout(() => setScanLockedBoth(false), SCAN_COOLDOWN_MS);
+    }
+  }, [appendHistory, eventId, setScanLockedBoth]); // ✅ Removed scanLocked from deps
+
   const analyseFrame = useCallback(async () => {
-    if (scanLocked || !detectorSupported || !videoRef.current || videoRef.current.readyState < 2) {
-      rafRef.current = requestAnimationFrame(analyseFrame);
+    // ✅ Early exit if locked, unsupported, or video not ready
+    if (scanLockedRef.current || !detectorSupported || !videoRef.current || videoRef.current.readyState < 2) {
+      if (mountedRef.current && modeRef.current === 'camera') {
+        rafRef.current = requestAnimationFrame(analyseFrame);
+      }
       return;
     }
     try {
+      // ✅ detectorSupported already guarantees BarcodeDetector exists (removed redundant check)
       const detector = (detectorRef.current ??= new (window as any).BarcodeDetector({ formats: ['qr_code'] }));
       const codes = await detector.detect(videoRef.current);
       const qr = codes?.[0]?.rawValue;
       if (qr) {
         await handlePayload(qr.trim());
       }
-    } catch (err) {
-      console.error('Frame analysis error', err);
-    } finally {
+    } catch (err: any) {
+      // ✅ Handle BarcodeDetector errors gracefully - don't spam console
+      const errMsg = err?.message?.toLowerCase() || '';
+      if (errMsg.includes('barcode detection service unavailable') || 
+          errMsg.includes('not supported') ||
+          errMsg.includes('aborted')) {
+        // Expected error when BarcodeDetector is not available - stop the loop
+        if (mountedRef.current) {
+          setCameraError('QR scanning is not available in this browser. Please use manual entry.');
+          setAvailability('unavailable');
+        }
+        return; // Don't continue the loop
+      }
+      // Only log unexpected errors
+      console.warn('Frame analysis error:', err?.message || err);
+    }
+    
+    // Continue the loop if still in camera mode
+    if (mountedRef.current && modeRef.current === 'camera') {
       rafRef.current = requestAnimationFrame(analyseFrame);
     }
-  }, [detectorSupported, scanLocked]);
+  }, [detectorSupported, handlePayload]);
 
   const startCamera = useCallback(async () => {
+    // ✅ Prevent multiple simultaneous starts (fixes the loop issue)
+    if (cameraStartingRef.current) {
+      return;
+    }
+    cameraStartingRef.current = true;
+    
+    const isNativePlatform = Capacitor.isNativePlatform();
+    
     if (!detectorSupported) {
       setCameraError('Camera scanning is not supported on this device. Switch to manual entry.');
-      setMode('manual');
+      // ✅ Don't auto-switch to manual - let user see the error in camera view
       setAvailability('unavailable');
+      cameraStartingRef.current = false;
       return;
     }
     
@@ -221,30 +379,39 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     
     try {
       // Step 5.2: Pre-flight availability check for native platforms
-      if (isNative) {
+      if (isNativePlatform) {
         const availabilityCheck = await checkCapacitorScannerReady();
         
         if (!availabilityCheck.ready) {
           const friendlyError = getUserFriendlyError(availabilityCheck.reason);
           setCameraError(friendlyError);
           setAvailability('unavailable');
-          setMode('manual');
+          // ✅ Don't auto-switch to manual - show error overlay instead
           setInitializing(false);
+          cameraStartingRef.current = false;
           return;
         }
         
         setAvailability('available');
       } else {
+        // ✅ Web: Check if getUserMedia is available before trying
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setCameraError('Camera is not supported in this browser. Use manual entry.');
+          setAvailability('unavailable');
+          setInitializing(false);
+          cameraStartingRef.current = false;
+          return;
+        }
         setAvailability('available');
       }
       
       // Use Capacitor BarcodeScanner on native platforms
-      if (isNative) {
+      if (isNativePlatform) {
         // Continuous scanning loop using the new API
         // Note: scanBarcode is one-shot, so we call it repeatedly
         const scanLoop = async () => {
-          // Check if we should continue scanning
-          if (mode !== 'camera' || scanLocked) {
+          // ✅ Use refs to get current values (not stale closure values)
+          if (modeRef.current !== 'camera' || scanLockedRef.current) {
             return;
           }
 
@@ -258,17 +425,17 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
               cameraDirection: 1, // BACK camera
             });
 
-            if (result?.ScanResult && !scanLocked) {
+            if (result?.ScanResult && !scanLockedRef.current) {
               await handlePayload(result.ScanResult.trim());
               // After processing, restart scan loop (with cooldown)
               setTimeout(() => {
-                if (mode === 'camera' && !scanLocked) {
+                if (modeRef.current === 'camera' && !scanLockedRef.current) {
                   scanLoopRef.current?.();
                 }
               }, SCAN_COOLDOWN_MS);
             } else {
               // No result, restart immediately
-              if (mode === 'camera' && !scanLocked) {
+              if (modeRef.current === 'camera' && !scanLockedRef.current) {
                 scanLoopRef.current?.();
               }
             }
@@ -281,9 +448,9 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
             } else {
               console.error('Scan error:', err);
               // Retry after error (only if still in camera mode)
-              if (mode === 'camera' && !scanLocked) {
+              if (modeRef.current === 'camera' && !scanLockedRef.current) {
                 setTimeout(() => {
-                  if (mode === 'camera') {
+                  if (modeRef.current === 'camera') {
                     scanLoopRef.current?.();
                   }
                 }, 1000);
@@ -315,33 +482,47 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
           await video.play();
         }
         const track = stream.getVideoTracks()[0];
-        const capabilities = (track.getCapabilities?.() as MediaTrackCapabilities | undefined) ?? {};
+        // TypeScript doesn't know about torch capability, but it exists on many devices
+        const capabilities = (track.getCapabilities?.() as Record<string, unknown> | undefined) ?? {};
         setTorchSupported(Boolean(capabilities.torch));
         rafRef.current = requestAnimationFrame(analyseFrame);
       }
     } catch (err: any) {
-      console.error('Camera start failed', err);
+      // ✅ AbortError is expected when camera is interrupted - handle silently
+      const errName = err?.name || '';
+      const errMsg = err?.message?.toLowerCase() || '';
+      
+      if (errName === 'AbortError' || errMsg.includes('interrupted by a new load request')) {
+        // This is normal during React re-renders or mode switching - don't show error
+        cameraStartingRef.current = false;
+        return;
+      }
+      
+      console.warn('Camera start failed:', err?.message || err);
       
       // Step 5.3: User-friendly error messages
-      const errMsg = err?.message?.toLowerCase() || '';
       let errorReason: string | undefined;
       
       if (errMsg.includes('permission') || errMsg.includes('denied')) {
         errorReason = 'permission_denied';
       } else if (errMsg.includes('capacitor') || errMsg.includes('plugin')) {
         errorReason = 'plugin_unavailable';
+      } else if (errMsg.includes('notallowed') || errMsg.includes('not allowed')) {
+        errorReason = 'permission_denied';
+      } else if (errMsg.includes('notfound') || errMsg.includes('not found')) {
+        errorReason = 'default';
       }
       
-      setCameraError(getUserFriendlyError(errorReason));
-      setAvailability('unavailable');
-      setMode('manual');
+      if (mountedRef.current) {
+        setCameraError(getUserFriendlyError(errorReason));
+        setAvailability('unavailable');
+      }
+      // ✅ Don't auto-switch to manual - let user see error in camera view and manually switch
     } finally {
       setInitializing(false);
-      if (availability === 'checking') {
-        setAvailability('available');
-      }
+      cameraStartingRef.current = false;
     }
-  }, [detectorSupported, isNative, mode, scanLocked, handlePayload, checkCapacitorScannerReady, getUserFriendlyError, availability]);
+  }, [detectorSupported, handlePayload, checkCapacitorScannerReady]); // ✅ getUserFriendlyError is now top-level
 
   // Step 5.4: Check availability on mount (progressive enhancement)
   useEffect(() => {
@@ -360,86 +541,22 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     void checkAvailability();
   }, [isNative, checkCapacitorScannerReady]);
 
+  // ✅ Store startCamera in a ref to avoid dependency issues
+  const startCameraRef = useRef(startCamera);
+  startCameraRef.current = startCamera;
+  
   useEffect(() => {
     if (mode === 'camera') {
-      void startCamera();
+      // Use ref to avoid stale closure
+      void startCameraRef.current();
     } else {
       stopCamera();
     }
     return () => {
       stopCamera();
+      cameraStartingRef.current = false; // Reset lock on cleanup
     };
-  }, [mode, startCamera, stopCamera]);
-
-  const appendHistory = useCallback((entry: ScanHistoryItem) => {
-    setHistory((prev) => [entry, ...prev].slice(0, 25));
-    setStatus(entry);
-  }, []);
-
-  const handlePayload = useCallback(async (payload: string) => {
-    if (!payload || scanLocked) return;
-    
-    // Set lock immediately to prevent double-scans
-    setScanLocked(true);
-    
-    const now = Date.now();
-    duplicateCache.current.forEach((timestamp, key) => {
-      if (now - timestamp > 10 * 60 * 1000) {
-        duplicateCache.current.delete(key);
-      }
-    });
-    if (now < cooldownRef.current) {
-      // Unlock if we're still in cooldown from a previous scan
-      setTimeout(() => setScanLocked(false), 300);
-      return;
-    }
-    cooldownRef.current = now + SCAN_COOLDOWN_MS;
-
-    const cached = duplicateCache.current.get(payload);
-    if (cached && now - cached < 10_000) {
-      const entry: ScanHistoryItem = {
-        id: crypto.randomUUID(),
-        code: payload,
-        status: 'duplicate',
-        message: 'Already scanned recently',
-        timestamp: new Date().toISOString(),
-      };
-      appendHistory(entry);
-      await triggerHaptic(false);
-      return;
-    }
-
-    try {
-      const result = await validateTicket({ qr: payload, event_id: eventId });
-      const status = result.result as ScanResultType;
-      const copy = RESULT_COPY[status] ?? RESULT_COPY.invalid;
-      const message = result.message || copy.label;
-      const entry: ScanHistoryItem = {
-        id: crypto.randomUUID(),
-        code: payload,
-        status,
-        message,
-        timestamp: result.timestamp || new Date().toISOString(),
-      };
-      appendHistory(entry);
-      duplicateCache.current.set(payload, Date.now());
-      await triggerHaptic(status === 'valid');
-    } catch (err) {
-      console.error('Validation error', err);
-      const entry: ScanHistoryItem = {
-        id: crypto.randomUUID(),
-        code: payload,
-        status: 'invalid',
-        message: 'Unable to verify. Check connection.',
-        timestamp: new Date().toISOString(),
-      };
-      appendHistory(entry);
-      await triggerHaptic(false);
-    } finally {
-      // Unlock after cooldown period to give operator time to see result
-      setTimeout(() => setScanLocked(false), SCAN_COOLDOWN_MS);
-    }
-  }, [appendHistory, eventId, scanLocked]);
+  }, [mode, stopCamera]); // ✅ Only depend on mode and stopCamera, not startCamera
 
   const handleManualSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -449,7 +566,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
     void handlePayload(code);
   };
 
-  const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+  // ✅ offline is now tracked via state with event listeners (defined above)
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -669,7 +786,7 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
           >
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold uppercase tracking-wide">{RESULT_COPY[status.status].label}</CardTitle>
-              <Badge variant="outline" className="bg-white/60 text-xs">
+              <Badge variant="neutral" className="bg-white/60 text-xs">
                 {new Date(status.timestamp).toLocaleTimeString()}
               </Badge>
             </CardHeader>
@@ -702,14 +819,14 @@ export function ScannerView({ eventId, onBack }: ScannerViewProps) {
                     <p className="font-mono text-xs text-slate-500 truncate mt-0.5">{entry.code}</p>
                   </div>
                   <Badge
-                    variant="outline"
-                    className={
+                    variant={
                       entry.status === 'valid'
-                        ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-semibold'
+                        ? 'success'
                         : entry.status === 'duplicate' || entry.status === 'wrong_event' || entry.status === 'refunded'
-                          ? 'border-amber-500/50 bg-amber-500/10 text-amber-400 font-semibold'
-                          : 'border-red-500/50 bg-red-500/10 text-red-400 font-semibold'
+                          ? 'warning'
+                          : 'danger'
                     }
+                    className="font-semibold"
                   >
                     {RESULT_COPY[entry.status].label}
                   </Badge>

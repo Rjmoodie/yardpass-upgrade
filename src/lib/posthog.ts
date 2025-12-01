@@ -6,8 +6,12 @@ if (typeof window !== 'undefined' && env.posthogKey) {
   posthog.init(env.posthogKey, {
     api_host: env.posthogHost,
     capture_pageview: true,
+    // Debug mode disabled to reduce console noise
+    // Enable manually with: localStorage.setItem('posthog_debug', 'true') then reload
     loaded: (client) => {
-      if (import.meta.env.DEV) client.debug();
+      if (import.meta.env.DEV && localStorage.getItem('posthog_debug') === 'true') {
+        client.debug();
+      }
     }
   });
 }

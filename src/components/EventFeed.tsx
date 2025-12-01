@@ -35,6 +35,11 @@ interface FeedPost {
   is_organizer: boolean;
   badge_label?: string | null;
   liked_by_me?: boolean;
+  // Post as organization fields
+  post_as_context_type?: string | null;
+  post_as_context_id?: string | null;
+  post_as_org_name?: string | null;
+  post_as_org_logo?: string | null;
   user_profiles: {
     display_name: string;
     photo_url?: string | null;
@@ -235,34 +240,46 @@ export function EventFeed({ eventId, userId, onEventClick, refreshTrigger }: Eve
         }, {});
       }
 
-      const mapped: FeedPost[] = rows.map((r) => ({
-        id: r.id,
-        text: r.text || '',
-        media_urls: (r.media_urls ?? []).filter(Boolean),
-        created_at: r.created_at,
-        author_user_id: r.author_user_id,
-        event_id: r.event_id,
-        like_count: r.like_count ?? 0,
-        comment_count: r.comment_count ?? 0,
-        is_organizer: r.author_is_organizer ?? r.is_organizer ?? false,
-        badge_label: r.badge_label ?? r.author_badge_label ?? null,
-        liked_by_me: r.liked_by_me ?? false,
-        user_profiles: { 
-          display_name: r.author_name ?? r.author_display_name ?? 'User', 
-          photo_url: r.author_photo_url ?? null,
-          username: r.author_username ?? null,
-          instagram_handle: r.author_instagram ?? null,
-          twitter_handle: r.author_twitter ?? null,
-          website_url: r.author_website ?? null,
-        },
-        events: { 
-          title: r.event_title ?? titles[r.event_id] ?? 'Event',
-          organizer_name: r.organizer_name ?? null,
-          organizer_instagram: r.organizer_instagram ?? null,
-          organizer_twitter: r.organizer_twitter ?? null,
-          organizer_website: r.organizer_website ?? null,
-        },
-      }));
+      const mapped: FeedPost[] = rows.map((r) => {
+        // Use organization branding if post_as_context_type is 'organization'
+        const displayName = r.post_as_org_name ?? r.author_name ?? r.author_display_name ?? 'User';
+        const displayPhoto = r.post_as_org_logo ?? r.author_photo_url ?? null;
+        const displayBadge = r.post_as_context_type === 'organization' ? 'ORGANIZATION' : (r.badge_label ?? r.author_badge_label ?? null);
+        
+        return {
+          id: r.id,
+          text: r.text || '',
+          media_urls: (r.media_urls ?? []).filter(Boolean),
+          created_at: r.created_at,
+          author_user_id: r.author_user_id,
+          event_id: r.event_id,
+          like_count: r.like_count ?? 0,
+          comment_count: r.comment_count ?? 0,
+          is_organizer: r.author_is_organizer ?? r.is_organizer ?? false,
+          badge_label: displayBadge,
+          liked_by_me: r.liked_by_me ?? false,
+          // Include post_as fields for reference
+          post_as_context_type: r.post_as_context_type ?? null,
+          post_as_context_id: r.post_as_context_id ?? null,
+          post_as_org_name: r.post_as_org_name ?? null,
+          post_as_org_logo: r.post_as_org_logo ?? null,
+          user_profiles: { 
+            display_name: displayName,
+            photo_url: displayPhoto,
+            username: r.post_as_context_type === 'organization' ? null : (r.author_username ?? null),
+            instagram_handle: r.post_as_context_type === 'organization' ? null : (r.author_instagram ?? null),
+            twitter_handle: r.post_as_context_type === 'organization' ? null : (r.author_twitter ?? null),
+            website_url: r.post_as_context_type === 'organization' ? null : (r.author_website ?? null),
+          },
+          events: { 
+            title: r.event_title ?? titles[r.event_id] ?? 'Event',
+            organizer_name: r.organizer_name ?? null,
+            organizer_instagram: r.organizer_instagram ?? null,
+            organizer_twitter: r.organizer_twitter ?? null,
+            organizer_website: r.organizer_website ?? null,
+          },
+        };
+      });
 
       // Comments preview (first few) — keep lightweight
       if (mapped.length) {

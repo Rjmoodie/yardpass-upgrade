@@ -1,5 +1,4 @@
-import { ReactNode, ElementType, useRef, useEffect, useLayoutEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { ReactNode, ElementType } from "react";
 import { cn } from "@/lib/utils";
 
 type FullScreenSafeAreaProps = {
@@ -52,12 +51,6 @@ export function FullScreenSafeArea({
   includeBottomNav = true,
   as: Component = "div",
 }: FullScreenSafeAreaProps) {
-  const containerRef = useRef<HTMLElement | null>(null);
-  
-  // Get location for scroll reset on route change
-  // Note: This will error if used outside React Router context - that's expected
-  const location = useLocation();
-
   const safeAreaTop = "env(safe-area-inset-top, 0px)";
   const safeAreaBottom = "env(safe-area-inset-bottom, 0px)";
   
@@ -73,55 +66,8 @@ export function FullScreenSafeArea({
     ? `calc(${safeAreaBottom} + var(--bottom-nav-safe, 4.5rem))`
     : safeAreaBottom;
 
-  // Reset scroll position when route changes (prevents scroll restoration on navigation)
-  // This fixes the "flash then revert" issue where the header disappears due to restored scroll position
-  // MUST use useLayoutEffect to run synchronously BEFORE browser paint/scroll restoration
-  useLayoutEffect(() => {
-    if (scroll && containerRef.current) {
-      // Immediate synchronous reset - happens before browser paint
-      containerRef.current.scrollTop = 0;
-      containerRef.current.scrollTo({ top: 0, behavior: 'instant' });
-    }
-  }, [location.pathname, scroll]);
-
-  // Also reset in useEffect as fallback for any delayed restoration
-  useEffect(() => {
-    if (scroll && containerRef.current) {
-      // Reset again after paint to catch delayed restoration
-      const timeout1 = setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = 0;
-          containerRef.current.scrollTo({ top: 0, behavior: 'instant' });
-        }
-      }, 0);
-      
-      const raf1 = requestAnimationFrame(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = 0;
-        }
-        const raf2 = requestAnimationFrame(() => {
-          if (containerRef.current) {
-            containerRef.current.scrollTop = 0;
-          }
-        });
-        setTimeout(() => cancelAnimationFrame(raf2), 100);
-      });
-
-      return () => {
-        clearTimeout(timeout1);
-        cancelAnimationFrame(raf1);
-      };
-    }
-  }, [location.pathname, scroll]);
-
-  // Callback ref to handle dynamic Component prop
-  const setRef = (element: HTMLElement | null) => {
-    containerRef.current = element;
-  };
-
   return (
     <Component
-      ref={setRef}
       className={cn(
         "flex flex-col min-h-[100dvh]",
         scroll && "overflow-y-auto",

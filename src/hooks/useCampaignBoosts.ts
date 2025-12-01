@@ -129,7 +129,6 @@ export function useCampaignBoosts({
           daily_remaining: null,
         }));
 
-        console.log(`[useCampaignBoosts] Successfully fetched ${mappedData.length} ads for placement: ${placement}`);
         return mappedData;
       } catch (err) {
         console.warn('[useCampaignBoosts] rpc error, returning empty array', err);

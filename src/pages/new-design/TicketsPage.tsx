@@ -391,15 +391,7 @@ export default function TicketsPage() {
               )}
 
               {/* Actions */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <button 
-                  onClick={() => handleDownload(ticket)}
-                  disabled={!qrCodeImages[ticket.id]}
-                  className="flex items-center justify-center gap-2 rounded-full border border-border/10 bg-white/5 py-2.5 text-xs font-medium text-foreground transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm"
-                >
-                  <Download className="h-4 w-4" />
-                  Download
-                </button>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <button 
                   onClick={() => handleShare(ticket)}
                   className="flex items-center justify-center gap-2 rounded-full border border-border/10 bg-white/5 py-2.5 text-xs font-medium text-foreground transition-all hover:bg-white/10 active:scale-95 sm:text-sm"

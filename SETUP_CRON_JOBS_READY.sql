@@ -2,7 +2,9 @@
 -- Phase 2.1: Cron Jobs Setup
 -- ============================================================================
 -- 
--- ✅ Service Role Key configured - ready to run!
+-- ⚠️ SECURITY: Replace YOUR_SERVICE_ROLE_KEY with your actual Service Role Key
+-- Get it from: Supabase Dashboard > Settings > API > service_role key
+-- NEVER commit this file with a real key!
 --
 -- ============================================================================
 
@@ -12,6 +14,9 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 -- ============================================================================
 -- Step 2: Schedule Email Queue Processor (Every 1 Minute)
 -- ============================================================================
+-- 
+-- ⚠️ REPLACE 'YOUR_SERVICE_ROLE_KEY' with your actual Service Role Key below
+-- 
 
 SELECT cron.schedule(
   'process-email-queue',
@@ -22,7 +27,7 @@ SELECT cron.schedule(
       url := 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/process-email-queue',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjgyNjY3OCwiZXhwIjoyMDcyNDAyNjc4fQ.l8_UhD6AtlJ0dfZo36TGTVDxn2qIVsqrx82fCsnFdhg'
+        'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
       ),
       body := '{}'::jsonb
     ) AS request_id;
@@ -32,6 +37,9 @@ SELECT cron.schedule(
 -- ============================================================================
 -- Step 3: Schedule Webhook Retry Processor (Every 5 Minutes)
 -- ============================================================================
+-- 
+-- ⚠️ REPLACE 'YOUR_SERVICE_ROLE_KEY' with your actual Service Role Key below
+-- 
 
 SELECT cron.schedule(
   'process-webhook-retries',
@@ -42,7 +50,7 @@ SELECT cron.schedule(
       url := 'https://yieslxnrfeqchbcmgavz.supabase.co/functions/v1/process-webhook-retries',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjgyNjY3OCwiZXhwIjoyMDcyNDAyNjc4fQ.l8_UhD6AtlJ0dfZo36TGTVDxn2qIVsqrx82fCsnFdhg'
+        'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
       ),
       body := '{}'::jsonb
     ) AS request_id;

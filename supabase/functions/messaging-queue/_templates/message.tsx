@@ -250,11 +250,13 @@ export const MessageEmail = ({
           {/* Footer */}
           <Section style={footer} className="content-pad">
             <Text style={footerLinks}>
-              <Link href="https://liventix.app" style={footerLink}>{org_name || 'Liventix'}</Link>
+              <Link href="https://liventix.tech" style={footerLink}>{org_name || 'Liventix'}</Link>
               {' · '}
-              <Link href="https://liventix.app/help" style={footerLink}>Help Center</Link>
+              <Link href="https://liventix.tech/help" style={footerLink}>Help Center</Link>
               {' · '}
-              <Link href="https://liventix.app/privacy" style={footerLink}>Privacy</Link>
+              <Link href="https://liventix.tech/privacy" style={footerLink}>Privacy</Link>
+              {' · '}
+              <Link href="https://liventix.tech/terms" style={footerLink}>Terms</Link>
               {unsubscribe_url ? (
                 <>
                   {' · '}

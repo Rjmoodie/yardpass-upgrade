@@ -23,6 +23,80 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import QRCode from 'qrcode';
 
+// QR Code display component with on-demand generation
+function QRCodeDisplay({
+  ticketId,
+  qrCode,
+  title,
+  qrCodeImages,
+  setQrCodeImages,
+  isExpanded,
+}: {
+  ticketId: string;
+  qrCode: string;
+  title: string;
+  qrCodeImages: Record<string, string>;
+  setQrCodeImages: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  isExpanded: boolean;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(false);
+
+  // Generate QR code on-demand when expanded and not already generated
+  useEffect(() => {
+    if (!isExpanded || !qrCode || qrCodeImages[ticketId] || generating || error) return;
+
+    const generateQR = async () => {
+      setGenerating(true);
+      try {
+        const qrDataUrl = await QRCode.toDataURL(qrCode, {
+          width: 400,
+          margin: 2,
+          errorCorrectionLevel: 'M',
+          type: 'image/png',
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+        setQrCodeImages(prev => ({ ...prev, [ticketId]: qrDataUrl }));
+      } catch (err) {
+        console.error('[QRCodeDisplay] Failed to generate QR:', ticketId, err);
+        setError(true);
+      } finally {
+        setGenerating(false);
+      }
+    };
+
+    generateQR();
+  }, [isExpanded, qrCode, ticketId, qrCodeImages, setQrCodeImages, generating, error]);
+
+  return (
+    <div className="mx-auto flex h-56 w-56 sm:h-64 sm:w-64 items-center justify-center rounded-2xl bg-white p-4 shadow-xl">
+      {qrCodeImages[ticketId] ? (
+        <img 
+          src={qrCodeImages[ticketId]} 
+          alt={`${title} QR Code`} 
+          className="h-full w-full object-contain" 
+        />
+      ) : qrCode && !error ? (
+        <div className="flex flex-col items-center gap-3 w-full">
+          <QrCode className="h-12 w-12 text-gray-400 animate-pulse" />
+          <span className="text-sm text-gray-500">{generating ? 'Generating...' : 'Loading...'}</span>
+          <div className="text-xs text-gray-400 text-center mt-2 break-all px-2">
+            Code: {qrCode.substring(0, 12)}...
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <QrCode className="h-12 w-12 text-gray-400" />
+          <span className="text-sm text-gray-500">{error ? 'QR generation failed' : 'No QR code available'}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface TicketItem {
   id: string;
   status: 'active' | 'used';
@@ -100,8 +174,6 @@ export default function TicketsPage({
         setLoading(true);
         setError(null);
 
-        console.log('[TicketsPage] Fetching member tickets for user:', user.id);
-
         const { data, error: fetchError } = await supabase
           .from('tickets')
           .select(`
@@ -130,11 +202,6 @@ export default function TicketsPage({
           .order('created_at', { ascending: false });
 
         if (fetchError) throw fetchError;
-
-        console.log('[TicketsPage] Member tickets response:', {
-          ticketCount: data?.length || 0,
-          firstTicket: data?.[0],
-        });
 
         // Get organizer names
         const eventCreatorIds = [...new Set(data?.map((t: any) => t.events?.created_by).filter(Boolean))];
@@ -197,31 +264,37 @@ export default function TicketsPage({
 
         setAllTickets(mappedTickets);
 
-        // Generate QR codes
-        const qrPromises = mappedTickets
-          .filter(t => t.qrCode)
-          .map(async (ticket) => {
-            try {
-              const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
-                width: 400,
-                margin: 2,
-                color: {
-                  dark: '#000000',
-                  light: '#FFFFFF'
-                }
-              });
-              return { id: ticket.id, dataUrl: qrDataUrl };
-            } catch (err) {
-              console.error('[TicketsPage] Error generating QR code:', err);
-              return null;
-            }
-          });
+        // Generate QR codes with proper error handling
+        const generateQRCode = async (ticket: TicketItem): Promise<{ id: string; dataUrl: string } | null> => {
+          if (!ticket.qrCode) return null;
+          
+          try {
+            // Use toDataURL which works in both browser and Node environments
+            const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
+              width: 400,
+              margin: 2,
+              errorCorrectionLevel: 'M',
+              type: 'image/png',
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              }
+            });
+            return { id: ticket.id, dataUrl: qrDataUrl };
+          } catch (err) {
+            console.error('[TicketsPage] QR generation failed for:', ticket.id, err);
+            return null;
+          }
+        };
 
-        const qrResults = await Promise.all(qrPromises);
+        // Generate QR codes sequentially to avoid overwhelming the browser
         const qrMap: Record<string, string> = {};
-        qrResults.forEach(result => {
-          if (result) qrMap[result.id] = result.dataUrl;
-        });
+        for (const ticket of mappedTickets.filter(t => t.qrCode)) {
+          const result = await generateQRCode(ticket);
+          if (result) {
+            qrMap[result.id] = result.dataUrl;
+          }
+        }
         setQrCodeImages(qrMap);
 
       } catch (err: any) {
@@ -257,12 +330,6 @@ export default function TicketsPage({
 
         if (fetchError) throw fetchError;
 
-        console.log('[TicketsPage] Guest tickets response:', {
-          ticketCount: data?.tickets?.length || 0,
-          firstTicket: data?.tickets?.[0],
-          firstTicketQR: data?.tickets?.[0]?.qr_code,
-        });
-
         // Map the response to TicketItem format
         const mappedTickets: TicketItem[] = (data?.tickets || []).map((ticket: any) => {
           // event_date is timestamp with time zone, event_time is time without time zone
@@ -297,17 +364,6 @@ export default function TicketsPage({
           // Determine status - only mark as used if redeemed or event is truly past
           const ticketStatus = ticket.status === 'redeemed' || isPast ? 'used' : 'active';
 
-          console.log('[TicketsPage] Ticket status check:', {
-            id: ticket.id,
-            eventTitle: ticket.event_title,
-            eventDate: ticket.event_date,
-            parsedDate: eventDate,
-            isPast,
-            dbStatus: ticket.status,
-            finalStatus: ticketStatus,
-            hasQR: !!ticket.qr_code,
-          });
-
           return {
             id: ticket.id,
             status: ticketStatus,
@@ -326,57 +382,36 @@ export default function TicketsPage({
         setAllTickets(mappedTickets);
 
         // Generate QR codes for all tickets (both active and past)
-        console.log('[TicketsPage] Generating QR codes for tickets:', {
-          totalTickets: mappedTickets.length,
-          withQR: mappedTickets.filter(t => t.qrCode).length,
-          activeCount: mappedTickets.filter(t => t.status === 'active').length,
-          usedCount: mappedTickets.filter(t => t.status === 'used').length,
-          sampleTicketId: mappedTickets[0]?.id,
-          sampleQRCode: mappedTickets[0]?.qrCode?.substring(0, 50),
-        });
-
-        const qrPromises = mappedTickets
-          .filter(t => t.qrCode) // Generate for ALL tickets with QR codes, not just active
-          .map(async (ticket) => {
-            try {
-              console.log('[TicketsPage] Generating QR for ticket:', ticket.id, 'with code:', ticket.qrCode.substring(0, 30));
-              const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
-                width: 400,
-                margin: 2,
-                color: {
-                  dark: '#000000',
-                  light: '#FFFFFF'
-                }
-              });
-              console.log('[TicketsPage] ✅ QR generated for:', ticket.id);
-              return { id: ticket.id, dataUrl: qrDataUrl };
-            } catch (err) {
-              console.error('[TicketsPage] ❌ Error generating QR code for ticket:', ticket.id, err);
-              return null;
-            }
-          });
-
-        const qrResults = await Promise.all(qrPromises);
-        console.log('[TicketsPage] QR promises resolved:', qrResults.length, 'results');
-        
-        const qrMap: Record<string, string> = {};
-        qrResults.forEach((result, index) => {
-          if (result) {
-            console.log(`[TicketsPage] Adding QR ${index + 1}:`, result.id);
-            qrMap[result.id] = result.dataUrl;
-          } else {
-            console.warn(`[TicketsPage] Null result at index ${index}`);
+        const generateQRCode = async (ticket: TicketItem): Promise<{ id: string; dataUrl: string } | null> => {
+          if (!ticket.qrCode) return null;
+          
+          try {
+            const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
+              width: 400,
+              margin: 2,
+              errorCorrectionLevel: 'M',
+              type: 'image/png',
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              }
+            });
+            return { id: ticket.id, dataUrl: qrDataUrl };
+          } catch (err) {
+            console.error('[TicketsPage] QR generation failed for:', ticket.id, err);
+            return null;
           }
-        });
-        
-        console.log('[TicketsPage] Setting QR code images state with', Object.keys(qrMap).length, 'images');
-        setQrCodeImages(qrMap);
+        };
 
-        console.log('[TicketsPage] ✅ QR code generation complete:', {
-          generated: Object.keys(qrMap).length,
-          ticketIds: Object.keys(qrMap),
-          hasImages: Object.keys(qrMap).length > 0,
-        });
+        // Generate QR codes sequentially to avoid overwhelming the browser
+        const qrMap: Record<string, string> = {};
+        for (const ticket of mappedTickets.filter(t => t.qrCode)) {
+          const result = await generateQRCode(ticket);
+          if (result) {
+            qrMap[result.id] = result.dataUrl;
+          }
+        }
+        setQrCodeImages(qrMap);
       } catch (err: any) {
         console.error('Error fetching guest tickets:', err);
         setError(err?.message || 'Failed to load tickets');
@@ -595,28 +630,14 @@ export default function TicketsPage({
                       {/* QR Code Section - Full Width */}
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
                         <p className="mb-3 text-sm font-semibold text-white">Scan at Entry</p>
-                        <div className="mx-auto flex h-56 w-56 sm:h-64 sm:w-64 items-center justify-center rounded-2xl bg-white p-4 shadow-xl">
-                          {qrCodeImages[ticket.id] ? (
-                            <img 
-                              src={qrCodeImages[ticket.id]} 
-                              alt={`${ticket.title} QR Code`} 
-                              className="h-full w-full object-contain" 
-                            />
-                          ) : ticket.qrCode ? (
-                            <div className="flex flex-col items-center gap-3 w-full">
-                              <QrCode className="h-12 w-12 text-gray-400 animate-pulse" />
-                              <span className="text-sm text-gray-500">Generating...</span>
-                              <div className="text-xs text-gray-400 text-center mt-2">
-                                Code: {ticket.qrCode}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-3">
-                              <QrCode className="h-12 w-12 text-gray-400" />
-                              <span className="text-sm text-gray-500">No QR code available</span>
-                            </div>
-                          )}
-                        </div>
+                        <QRCodeDisplay 
+                          ticketId={ticket.id}
+                          qrCode={ticket.qrCode}
+                          title={ticket.title}
+                          qrCodeImages={qrCodeImages}
+                          setQrCodeImages={setQrCodeImages}
+                          isExpanded={expandedTicket === ticket.id}
+                        />
                         <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/80">
                           <QrCode className="h-4 w-4" />
                           <span>Show this code at venue entrance</span>

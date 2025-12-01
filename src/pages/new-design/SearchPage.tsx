@@ -276,6 +276,15 @@ export default function SearchPage() {
                 ))}
               </div>
             </div>
+
+            {/* Hide Filters Button */}
+            <button
+              onClick={() => setShowFilters(false)}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/20 bg-white/5 py-2 text-xs font-medium text-foreground/60 transition-all hover:bg-white/10 hover:text-foreground sm:text-sm"
+            >
+              <X className="h-3.5 w-3.5" />
+              Hide Filters
+            </button>
           </div>
         )}
       </div>

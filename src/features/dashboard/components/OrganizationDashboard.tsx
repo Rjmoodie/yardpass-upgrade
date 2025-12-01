@@ -496,34 +496,35 @@ export function OrganizationDashboard({
             )}
           </Avatar>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="truncate">{organization.name}</h1>
-              <Badge variant="outline" className="text-xs">@{organization.handle}</Badge>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="truncate text-base sm:text-lg font-semibold">{organization.name}</h1>
+              <Badge variant="outline" className="text-[10px] sm:text-xs hidden sm:inline-flex">@{organization.handle}</Badge>
               {organization.verification_status === 'verified' && (
-                <Badge variant="secondary" className="text-xs">
-                  <Shield className="w-3 h-3 mr-1" />
-                  Verified
+                <Badge variant="secondary" className="text-[10px] sm:text-xs">
+                  <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Verified</span>
+                  <span className="sm:hidden">✓</span>
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">
-              {teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} • Since{' '}
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+              {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''} • Since{' '}
               {new Date(organization.created_at).getFullYear()}
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={refresh}>
-              <RefreshCw className="w-4 h-4 mr-1" />
-              Refresh
+          <div className="flex gap-1.5 sm:gap-2 shrink-0">
+            <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-auto sm:px-3" onClick={refresh}>
+              <RefreshCw className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={copyOrgLink} aria-label="Share organization">
+            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={copyOrgLink} aria-label="Share organization">
               <Share className="w-4 h-4" />
             </Button>
-            <Button onClick={onCreateEvent}>
-              <Plus className="w-4 h-4 mr-1" />
-              Create Event
+            <Button size="sm" className="h-9 sm:h-10 px-2.5 sm:px-4" onClick={onCreateEvent}>
+              <Plus className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Create Event</span>
             </Button>
           </div>
         </div>
@@ -532,14 +533,14 @@ export function OrganizationDashboard({
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <Tabs defaultValue="overview">
-          <div className="sticky top-0 bg-background z-20 pb-2">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="team">Team ({teamMembers.length})</TabsTrigger>
-              <TabsTrigger value="wallet">Wallet</TabsTrigger>
-              <TabsTrigger value="verification">Verification</TabsTrigger>
-              <TabsTrigger value="contacts">Contact Lists</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+          <div className="sticky top-0 bg-background z-20 pb-2 -mx-4 px-4 overflow-x-auto hide-scrollbar">
+            <TabsList className="inline-flex min-w-max gap-1 sm:grid sm:grid-cols-6 sm:w-full">
+              <TabsTrigger value="overview" className="text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4">Overview</TabsTrigger>
+              <TabsTrigger value="team" className="text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4">Team ({teamMembers.length})</TabsTrigger>
+              <TabsTrigger value="wallet" className="text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4">Wallet</TabsTrigger>
+              <TabsTrigger value="verification" className="text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4">Verify</TabsTrigger>
+              <TabsTrigger value="contacts" className="text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4">Contacts</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4">Settings</TabsTrigger>
             </TabsList>
           </div>
 

@@ -9,9 +9,6 @@ import { useTickets } from "@/hooks/useTickets";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { NotificationSystem } from "@/components/NotificationSystem";
-import { UsernameEditor } from "@/components/profile/UsernameEditor";
 import { CommentModal } from "@/features/comments";
 import { FullscreenPostViewer } from "@/components/post-viewer/FullscreenPostViewer";
 import { muxToPoster } from "@/lib/video/muxClient";
@@ -68,7 +65,7 @@ interface SavedItem {
 }
 
 export function ProfilePage() {
-  const { user: currentUser, updateProfileOptimistic } = useAuth();
+  const { user: currentUser, updateProfileOptimistic, updateRole } = useAuth();
   const { username, userId } = useParams<{ username?: string; userId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,8 +94,45 @@ export function ProfilePage() {
   
   const isOwnProfile = profile ? profile.user_id === currentUser?.id : (!username && !userId);
 
-  // Scroll reset is now handled at App level (ScrollRestorationManager)
-  // Removed duplicate logic to prevent conflicts
+  // ✅ CRITICAL: Reset scroll immediately when profile page mounts/loads or when navigating to a different profile
+  // This ensures the page always starts at the top, regardless of browser scroll restoration
+  useLayoutEffect(() => {
+    const main = document.getElementById('main-content');
+    if (!main || !(main instanceof HTMLElement)) return;
+
+    // Reset immediately, synchronously (before paint)
+    main.scrollTop = 0;
+    main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.scrollTo(0, 0);
+
+    // ✅ AGGRESSIVE: Reset again after layout/paint to catch any delayed scroll restoration
+    // This handles cases where layout shifts or browser scroll restoration happens after initial render
+    const resetTimeout = setTimeout(() => {
+      if (main instanceof HTMLElement && main.scrollTop > 0) {
+        main.scrollTop = 0;
+        main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        window.scrollTo(0, 0);
+        
+        if (import.meta.env.DEV) {
+          console.log('[ProfilePage] ✅ Scroll reset completed after layout');
+        }
+      }
+    }, 0); // Run on next tick to catch any delayed scroll restoration
+
+    return () => clearTimeout(resetTimeout);
+  }, [targetUserId, location.pathname]); // Reset when navigating to a different profile or route changes
+
+  // Handle tab change with immediate scroll reset
+  const handleTabChange = (tab: 'posts' | 'saved') => {
+    setActiveTab(tab);
+    // Immediately reset scroll to top so user sees the header/cover
+    const main = document.getElementById('main-content');
+    if (main instanceof HTMLElement) {
+      // Use both methods for maximum compatibility
+      main.scrollTop = 0;
+      main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  };
 
   // Load total following count (includes users, events, organizers)
   useEffect(() => {
@@ -243,20 +277,31 @@ export function ProfilePage() {
         if (error) throw error;
 
         // Transform the data
-        const items: SavedItem[] = (data || []).map((item: any) => ({
-          id: item.id,
-          item_type: item.item_type,
-          item_id: item.item_id,
-          title: item.event_title || 'Untitled',
-          cover_image_url: item.item_type === 'event' 
-            ? item.event_cover_image 
-            : (item.post_media_urls?.[0] || item.event_cover_image),
-          start_at: item.event_start_at,
-          is_flashback: false,
-          post_media_urls: item.post_media_urls,
-          post_text: item.post_text,
-          event_id: item.event_id || (item.item_type === 'event' ? item.item_id : item.event_id), // Include event_id
-        }));
+        const items: SavedItem[] = (data || []).map((item: any) => {
+          // Determine cover image - prioritize post media for posts, event cover for events
+          let coverImage = null;
+          if (item.item_type === 'post' && item.post_media_urls?.[0]) {
+            coverImage = item.post_media_urls[0];
+          } else if (item.item_type === 'event' && item.event_cover_image) {
+            coverImage = item.event_cover_image;
+          } else if (item.event_cover_image) {
+            // Fallback to event cover if available
+            coverImage = item.event_cover_image;
+          }
+          
+          return {
+            id: item.id,
+            item_type: item.item_type,
+            item_id: item.item_id,
+            title: item.event_title || 'Untitled',
+            cover_image_url: coverImage,
+            start_at: item.event_start_at,
+            is_flashback: item.is_flashback || false,
+            post_media_urls: item.post_media_urls,
+            post_text: item.post_text,
+            event_id: item.event_id || (item.item_type === 'event' ? item.item_id : item.event_id), // Include event_id
+          };
+        });
 
         setSavedEvents(items);
       } catch (error) {
@@ -298,6 +343,11 @@ export function ProfilePage() {
             : rawUrl;
         }
         
+        // Fallback to a placeholder if no image URL
+        if (!imageUrl || imageUrl === '') {
+          imageUrl = 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=400&h=400&fit=crop';
+        }
+        
         return {
           id: e.item_id, // Use item_id (either event_id or post_id)
           image: imageUrl,
@@ -335,90 +385,44 @@ export function ProfilePage() {
     );
   }
 
-  // CRITICAL: Reset scroll IMMEDIATELY on render (before any effects)
-  // This runs synchronously during render, before browser can restore scroll
-  if (typeof window !== 'undefined') {
-    // Find and reset scroll containers immediately
-    const scrollContainers = Array.from(document.querySelectorAll('*')).filter(el => {
-      if (!(el instanceof HTMLElement)) return false;
-      const style = window.getComputedStyle(el);
-      return (style.overflowY === 'auto' || style.overflowY === 'scroll') && 
-             el.scrollHeight > el.clientHeight;
-    });
-    
-    scrollContainers.forEach(el => {
-      if (el instanceof HTMLElement) {
-        el.scrollTop = 0;
-      }
-    });
-    
-    if (window.scrollY > 0) {
-      window.scrollTo(0, 0);
-    }
-  }
-
   return (
     <FullScreenSafeArea scroll={false} className="bg-gradient-to-b from-background via-background to-background/95">
-      {/* Cover Image - Extends behind status bar for full-bleed effect */}
+      {/* Top Header - Simple header with back button and actions */}
       <div 
-        className="relative overflow-hidden"
+        className="sticky top-0 z-50 flex items-center justify-between border-b border-border/10 bg-background/95 backdrop-blur-md px-4 py-3 md:px-8"
         style={{
-          height: 'calc(8rem + env(safe-area-inset-top, 0px))',
-          marginTop: '-1rem',
+          paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))',
+          paddingBottom: '0.75rem',
         }}
       >
-        <ImageWithFallback
-          src={profile.cover_photo_url || 'https://images.unsplash.com/photo-1656283384093-1e227e621fad?w=1200'}
-          alt="Cover"
-          className="h-full w-full object-cover"
-        />
-        {/* Enhanced gradient overlay for better icon visibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 pointer-events-none" />
+        {/* Left Side - Back Button */}
+        <div>
+          {(!isOwnProfile || window.history.length > 1) && (
+            <button
+              onClick={() => navigate(-1)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
+            </button>
+          )}
+        </div>
         
-        {/* Header Actions Container - Safe area aware, high z-index for Capacitor */}
-        <div 
-          className="absolute inset-x-0 top-0 flex items-center justify-between"
-          style={{
-            paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))',
-            paddingLeft: 'max(0.75rem, calc(env(safe-area-inset-left, 0px) + 0.75rem))',
-            paddingRight: 'max(0.75rem, calc(env(safe-area-inset-right, 0px) + 0.75rem))',
-            zIndex: 50, // High z-index to ensure buttons appear above Capacitor overlays
-          }}
-        >
-          {/* Left Side - Back Button */}
-          <div>
-            {/* Back button - show if viewing someone else's profile or if navigating from somewhere */}
-            {(!isOwnProfile || window.history.length > 1) && (
-              <button
-                onClick={() => navigate(-1)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
-                aria-label="Go back"
-              >
-                <ArrowLeft className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
-              </button>
-            )}
-          </div>
-          
-          {/* Right Side - Action Buttons */}
-          <div className="flex items-center gap-2">
-          {/* Organizer Mode Toggle (Own Profile Only) */}
+        {/* Right Side - Action Buttons */}
+        <div className="flex items-center gap-2">
+          {/* Host Button - Toggles Organizer Mode (Own Profile Only) */}
           {isOwnProfile && (
             <button
               onClick={async () => {
                 try {
                   const newRole = profile?.role === 'organizer' ? 'attendee' : 'organizer';
                   
-                  // ✅ Update AuthContext immediately for instant navigation update
+                  // Optimistic update for instant UI response
                   updateProfileOptimistic({ role: newRole });
-                  
-                  // Update local state immediately
                   setProfile(prev => prev ? { ...prev, role: newRole } : prev);
 
-                  // Update database
-                  const { error } = await supabase
-                    .from('user_profiles')
-                    .update({ role: newRole })
-                    .eq('user_id', currentUser?.id);
+                  // Update role in database (this triggers purple theme via data-role attribute)
+                  const { error } = await updateRole(newRole);
 
                   if (error) throw error;
 
@@ -427,7 +431,7 @@ export function ProfilePage() {
                     description: `Switched to ${newRole === 'organizer' ? 'Organizer' : 'Attendee'} mode`,
                   });
 
-                  // Navigate to appropriate home
+                  // Navigate to appropriate home after role change
                   if (newRole === 'organizer') {
                     navigate('/dashboard');
                   } else {
@@ -439,20 +443,29 @@ export function ProfilePage() {
                     description: 'Failed to update role',
                     variant: 'destructive',
                   });
+                  // Revert optimistic update on error
+                  setProfile(prev => prev ? { ...prev, role: profile?.role === 'organizer' ? 'attendee' : 'organizer' } : prev);
                 }
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-primary/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
-              title={profile?.role === 'organizer' ? 'Currently: Organizer Mode - Click to switch to Attendee' : 'Currently: Attendee Mode - Click to switch to Organizer'}
+              className={`flex h-8 w-auto items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all hover:opacity-90 active:scale-95 sm:h-9 sm:px-4 sm:text-sm ${
+                profile?.role === 'organizer'
+                  ? 'bg-purple-500 text-white'  // Purple when in organizer mode
+                  : 'bg-primary text-primary-foreground'  // Blue when in attendee mode
+              }`}
               aria-label={profile?.role === 'organizer' ? 'Switch to Attendee Mode' : 'Switch to Organizer Mode'}
             >
-              <Shield className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+              <span>Host</span>
             </button>
           )}
           
-          {/* Theme Toggle - Always visible for easy access */}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md sm:h-10 sm:w-10">
-            <ThemeToggle />
-          </div>
+          {/* Notifications */}
+          <button 
+            onClick={() => navigate('/notifications')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 border border-border/40 shadow-lg backdrop-blur-md transition-all hover:bg-background sm:h-10 sm:w-10"
+            aria-label="Notifications"
+          >
+            <Bell className="h-4 w-4 text-foreground sm:h-5 sm:w-5" />
+          </button>
           
           {/* Share Button */}
           <button 
@@ -479,14 +492,9 @@ export function ProfilePage() {
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <div className="flex items-center w-full">
-                    <Bell className="mr-2 h-4 w-4" />
-                    Notifications
-                    <div className="ml-auto">
-                      <NotificationSystem />
-                    </div>
-                  </div>
+                <DropdownMenuItem onClick={() => navigate('/notifications')}>
+                  <Bell className="mr-2 h-4 w-4" />
+                  Notifications
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
@@ -511,12 +519,11 @@ export function ProfilePage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          </div>
         </div>
       </div>
 
       {/* Profile Header - Hero Layout */}
-      <div className="relative px-4 md:px-8 -mt-10 md:-mt-16">
+      <div className="relative px-4 md:px-8 pt-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           {/* Avatar */}
           <div className="flex items-end gap-4">
@@ -639,15 +646,6 @@ export function ProfilePage() {
                 </button>
               </>
             )}
-            {isOwnProfile && (
-              <button
-                onClick={() => navigate('/create-event')}
-                className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-95"
-              >
-                <Calendar className="h-4 w-4" />
-                Host an Event
-              </button>
-            )}
           </div>
         </div>
 
@@ -704,59 +702,7 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* Value Card - Event Stats */}
-        {isOwnProfile && (
-          <div className="mt-4 rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm backdrop-blur-md">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary/80">
-                  Your event journey
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  See your impact as an organizer and attendee.
-                </p>
-              </div>
-              <div className="flex gap-6">
-                <div className="text-right">
-                  <p className="text-xl font-bold text-foreground">
-                    {(() => {
-                      // Count events created by current user
-                      // This is a simplified count - full implementation would check org memberships
-                      if (!currentUser?.id || profile?.role !== "organizer") return 0;
-                      // Note: This would ideally query events.created_by = userId
-                      // For now, using tickets to estimate (tickets have event info)
-                      const uniqueEventIds = new Set(tickets.map(t => t.eventId));
-                      // This is an approximation - actual count should come from events table
-                      return uniqueEventIds.size;
-                    })()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Events hosted</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-foreground">{tickets.length}</p>
-                  <p className="text-xs text-muted-foreground">Events attended</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Username Editor for Own Profile */}
-        {isOwnProfile && (
-          <div className="mt-3">
-            <UsernameEditor
-              currentUsername={profile.username}
-              userId={profile.user_id}
-              onUpdate={(newUsername) => {
-                setProfile({ ...profile, username: newUsername });
-                // Update URL if username changed
-                if (newUsername) {
-                  navigate(`/profile/${newUsername}`, { replace: true });
-                }
-              }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Tabs Section - Outside main header container */}
@@ -765,7 +711,7 @@ export function ProfilePage() {
         {/* Tabs */}
         <div className="mb-4 mt-6 flex gap-2 border-b border-border/10">
           <button
-            onClick={() => setActiveTab('posts')}
+            onClick={() => handleTabChange('posts')}
             className={`flex flex-1 items-center justify-center gap-1.5 pb-3 text-sm transition-all md:text-base ${
               activeTab === 'posts'
                 ? 'border-b-2 border-primary text-foreground font-semibold'
@@ -782,7 +728,7 @@ export function ProfilePage() {
           </button>
           {isOwnProfile && (
             <button
-              onClick={() => setActiveTab('saved')}
+              onClick={() => handleTabChange('saved')}
               className={`flex flex-1 items-center justify-center gap-1.5 pb-3 text-sm transition-all md:text-base ${
                 activeTab === 'saved'
                   ? 'border-b-2 border-primary text-foreground font-semibold'
@@ -836,10 +782,12 @@ export function ProfilePage() {
                 }}
                 className="group relative aspect-square overflow-hidden rounded-2xl bg-muted/40 ring-1 ring-border/40 transition-transform duration-200 hover:scale-[1.02]"
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/60" />
                 <ImageWithFallback
                   src={post.image}
-                  alt="Post"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  alt={post.type === 'event' ? 'Event' : 'Post'}
+                  className="relative h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  fallback="https://images.unsplash.com/photo-1511578314322-379afb476865?w=400&h=400&fit=crop"
                 />
                 
                 {/* Flashback Badge for Events */}
@@ -908,7 +856,6 @@ export function ProfilePage() {
           postIdSequence={posts.map(p => p.id)}
           initialIndex={posts.findIndex(p => p.id === selectedPostId)}
           onCommentCountChange={(postId, newCount) => {
-            console.log('💬 [Profile] Comment count updated:', postId, newCount);
             setPosts(prev => prev.map(p => 
               p.id === postId ? { ...p, comments: newCount } : p
             ));

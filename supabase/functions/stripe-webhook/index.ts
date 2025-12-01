@@ -71,6 +71,8 @@ serve(async (req) => {
       let checkoutSessionId: string | null = null;
       let queryField: string = "stripe_session_id";
       let queryValue: string | null = null;
+      let order: any = null;
+      let orderError: any = null;
       
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -78,40 +80,69 @@ serve(async (req) => {
         queryField = "stripe_session_id";
         queryValue = stripeSessionId;
         logStep("Processing checkout.session.completed", { stripeSessionId });
+        
+        // Find the order by the appropriate session ID field
+        logStep("Querying order", { field: queryField, value: queryValue });
+        
+        // Query public.orders view (with service_role grants)
+        const { data: orderData, error: orderErrorData } = await supabaseService
+          .from("orders")
+          .select("*")
+          .eq(queryField, queryValue)
+          .maybeSingle();
+        
+        order = orderData;
+        orderError = orderErrorData;
       } else if (event.type === "payment_intent.succeeded") {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const paymentIntentId = paymentIntent.id;
         
         // For embedded checkout, metadata contains the internal checkout_session_id
         checkoutSessionId = paymentIntent.metadata?.checkout_session_id || null;
         
         logStep("Processing payment_intent.succeeded", { 
-          paymentIntentId: paymentIntent.id,
+          paymentIntentId: paymentIntentId,
           checkoutSessionIdFromMetadata: checkoutSessionId,
           allMetadata: paymentIntent.metadata
         });
         
-        if (checkoutSessionId) {
-          // Query by the internal checkout_session_id field
+        // Try to find order by stripe_payment_intent_id first (most reliable)
+        logStep("Querying order by stripe_payment_intent_id", { paymentIntentId: paymentIntentId });
+        const { data: orderByPI, error: errorByPI } = await supabaseService
+          .from("orders")
+          .select("*")
+          .eq("stripe_payment_intent_id", paymentIntentId)
+          .maybeSingle();
+        
+        if (orderByPI) {
+          order = orderByPI;
+          logStep("Order found by stripe_payment_intent_id", { orderId: order.id });
+          queryField = "stripe_payment_intent_id";
+          queryValue = paymentIntentId;
+        } else if (checkoutSessionId) {
+          // Fallback: Query by the internal checkout_session_id field
+          logStep("Order not found by payment_intent_id, trying checkout_session_id", { checkoutSessionId });
           queryField = "checkout_session_id";
           queryValue = checkoutSessionId;
+          
+          const { data: orderBySession, error: errorBySession } = await supabaseService
+            .from("orders")
+            .select("*")
+            .eq(queryField, queryValue)
+            .maybeSingle();
+          
+          order = orderBySession;
+          orderError = errorBySession;
         } else {
-          logStep("No checkout_session_id in payment_intent metadata, skipping");
-          return new Response(JSON.stringify({ received: true, skipped: "no_session_id" }), {
+          logStep("No checkout_session_id in payment_intent metadata and no order found by payment_intent_id", {
+            paymentIntentId: paymentIntentId
+          });
+          return new Response(JSON.stringify({ received: true, skipped: "no_order_found" }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
       }
-
-      // Find the order by the appropriate session ID field
-      logStep("Querying order", { field: queryField, value: queryValue });
-      
-      // Query public.orders view (with service_role grants)
-      const { data: order, error: orderError } = await supabaseService
-        .from("orders")
-        .select("*")
-        .eq(queryField, queryValue)
-        .maybeSingle();
 
       logStep("Order query result", {
         hasOrder: !!order,
@@ -263,16 +294,27 @@ serve(async (req) => {
       }
 
       // Call process-payment to handle ticket creation and email sending
-      // Pass the stripe_session_id (which process-payment expects)
-      const sessionIdForProcessing = stripeSessionId || order.stripe_session_id;
+      // For Payment Intents, pass paymentIntentId; for Checkout Sessions, pass sessionId
+      let processPaymentBody: any = {};
       
-      logStep("Calling process-payment function", { 
-        sessionId: sessionIdForProcessing,
-        orderId: order.id 
-      });
+      if (event.type === "payment_intent.succeeded") {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        processPaymentBody = { paymentIntentId: paymentIntent.id };
+        logStep("Calling process-payment function with paymentIntentId", { 
+          paymentIntentId: paymentIntent.id,
+          orderId: order.id 
+        });
+      } else {
+        const sessionIdForProcessing = stripeSessionId || order.stripe_session_id;
+        processPaymentBody = { sessionId: sessionIdForProcessing };
+        logStep("Calling process-payment function with sessionId", { 
+          sessionId: sessionIdForProcessing,
+          orderId: order.id 
+        });
+      }
       
       const processPaymentResponse = await supabaseService.functions.invoke('process-payment', {
-        body: { sessionId: sessionIdForProcessing }
+        body: processPaymentBody
       });
 
       if (processPaymentResponse.error) {

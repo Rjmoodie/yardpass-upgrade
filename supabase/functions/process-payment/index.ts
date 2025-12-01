@@ -58,11 +58,15 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { sessionId } = await req.json();
-    if (!sessionId) {
-      throw new Error("sessionId is required");
+    // ✅ Support both Checkout Session (sessionId) and Payment Intent (paymentIntentId)
+    const { sessionId, paymentIntentId } = await req.json();
+    const identifier = paymentIntentId || sessionId;
+    const identifierType = paymentIntentId ? 'payment_intent' : 'session';
+    
+    if (!identifier) {
+      throw new Error("sessionId or paymentIntentId is required");
     }
-    logStep("Session ID provided", { sessionId });
+    logStep("Identifier provided", { identifier, identifierType });
 
     // Create Supabase service client
     const supabaseService = createClient(
@@ -71,20 +75,97 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Find the order by session ID with better error handling
-    const { data: order, error: orderError } = await supabaseService
-      .from("orders")
-      .select(`
-        *,
-        events!orders_event_id_fkey (
-          title,
-          start_at,
-          venue,
-          city
-        )
-      `)
-      .eq("stripe_session_id", sessionId)
-      .maybeSingle(); // Use maybeSingle instead of single for better error handling
+    // ✅ Find the order by session ID or Payment Intent ID
+    let order: any = null;
+    let orderError: any = null;
+    
+    if (identifierType === 'payment_intent') {
+      // Try stripe_payment_intent_id first (primary field for Payment Intents)
+      logStep("Querying order by stripe_payment_intent_id", { paymentIntentId: identifier });
+      const { data: orderByPI, error: errorByPI } = await supabaseService
+        .from("orders")
+        .select(`
+          *,
+          events!orders_event_id_fkey (
+            title,
+            start_at,
+            venue,
+            city
+          )
+        `)
+        .eq("stripe_payment_intent_id", identifier)
+        .maybeSingle();
+      
+      if (orderByPI) {
+        order = orderByPI;
+        logStep("Order found by stripe_payment_intent_id", { orderId: order.id });
+      } else if (errorByPI) {
+        logStep("Error querying by stripe_payment_intent_id", { error: errorByPI.message });
+        // Try fallback query
+        const { data: orderBySessionId, error: errorBySessionId } = await supabaseService
+          .from("orders")
+          .select(`
+            *,
+            events!orders_event_id_fkey (
+              title,
+              start_at,
+              venue,
+              city
+            )
+          `)
+          .eq("stripeSessionId", identifier)
+          .maybeSingle();
+        
+        if (orderBySessionId) {
+          order = orderBySessionId;
+          logStep("Order found by stripeSessionId (fallback)", { orderId: order.id });
+        } else {
+          orderError = errorBySessionId || errorByPI;
+        }
+      } else {
+        // No order found, try fallback
+        logStep("No order found by stripe_payment_intent_id, trying stripeSessionId", { paymentIntentId: identifier });
+        const { data: orderBySessionId, error: errorBySessionId } = await supabaseService
+          .from("orders")
+          .select(`
+            *,
+            events!orders_event_id_fkey (
+              title,
+              start_at,
+              venue,
+              city
+            )
+          `)
+          .eq("stripeSessionId", identifier)
+          .maybeSingle();
+        
+        if (orderBySessionId) {
+          order = orderBySessionId;
+          logStep("Order found by stripeSessionId (fallback)", { orderId: order.id });
+        } else {
+          orderError = errorBySessionId;
+        }
+      }
+    } else {
+      // Query by stripe_session_id (Checkout Session)
+      logStep("Querying order by stripe_session_id", { sessionId: identifier });
+      const { data: orderBySession, error: errorBySession } = await supabaseService
+        .from("orders")
+        .select(`
+          *,
+          events!orders_event_id_fkey (
+            title,
+            start_at,
+            venue,
+            city
+          )
+        `)
+        .eq("stripe_session_id", identifier)
+        .maybeSingle();
+      
+      order = orderBySession;
+      orderError = errorBySession;
+    }
 
     if (orderError) {
       logStep("Database error finding order", { error: orderError.message });
@@ -92,8 +173,8 @@ serve(async (req) => {
     }
 
     if (!order) {
-      logStep("Order not found", { sessionId });
-      throw new Error("Order not found for this session");
+      logStep("Order not found", { identifier, identifierType });
+      throw new Error(`Order not found for ${identifierType}: ${identifier}`);
     }
 
     logStep("Order found", { orderId: order.id, status: order.status });
@@ -220,9 +301,26 @@ serve(async (req) => {
           .filter(Boolean)
           .join(', ') || 'TBA';
 
+        // Determine customer name: prioritize contact_name for guests, then display_name, then extract from email
+        let customerName = 'Customer';
+        if (order.contact_name && order.contact_name.trim() && order.contact_name !== 'User') {
+          customerName = order.contact_name.trim();
+        } else if (userProfile?.display_name && userProfile.display_name !== 'User') {
+          customerName = userProfile.display_name;
+        } else if (userEmail) {
+          // Extract name from email (e.g., "john.doe@example.com" -> "john.doe")
+          const emailName = userEmail.split('@')[0];
+          if (emailName && emailName.length > 0) {
+            // Capitalize first letter of each word
+            customerName = emailName.split(/[._-]/).map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+          }
+        }
+
         // Prepare email payload
         const emailPayload = {
-          customerName: userProfile?.display_name || order.contact_name || 'Customer',
+          customerName,
           customerEmail: userEmail,
           eventTitle: order.events?.title || 'Event',
           eventDate,

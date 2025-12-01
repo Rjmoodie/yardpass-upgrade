@@ -30,23 +30,12 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
     const fetchPosts = async () => {
       setLoading(true);
       try {
-        // Preload org members if we need to split organizer vs attendee
-        let orgMemberIds: Set<string> | null = null;
-        if (filterType) {
-          const { data: ev } = await supabase
-            .from('events')
-            .select('owner_context_type, owner_context_id')
-            .eq('id', eventId)
-            .maybeSingle();
-          const orgId = ev?.owner_context_type === 'organization' ? ev.owner_context_id : null;
-          if (orgId) {
-            const { data: members } = await supabase
-              .from('org_memberships')
-              .select('user_id')
-              .eq('org_id', orgId);
-            orgMemberIds = new Set((members || []).map((m: any) => m.user_id));
-          }
-        }
+        // ✅ Removed client-side org membership check - Edge Function handles organizer detection
+        // The Edge Function correctly determines organizer status based on:
+        // - Event creator
+        // - Individual event owner  
+        // - Organization members
+        // We trust its `is_organizer` flag instead of re-checking
 
         const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
         const url = new URL(`${baseUrl}/functions/v1/posts-list`);
@@ -92,12 +81,43 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
         const payload = await res.json();
         let rows: any[] = payload.data ?? [];
 
-        // Client-side safety filter, in case edge function doesn't split correctly
-        if (filterType && orgMemberIds) {
+        console.log(`[EventPostsGrid] Received ${rows.length} posts from Edge Function`, {
+          filterType,
+          eventId,
+          firstPost: rows[0] ? {
+            id: rows[0].id,
+            author_user_id: rows[0].author_user_id,
+            is_organizer: rows[0].is_organizer,
+            author_is_organizer: rows[0].author_is_organizer
+          } : null
+        });
+
+        // ✅ Client-side safety filter: Use the Edge Function's is_organizer flag
+        // The Edge Function already correctly determines organizer status based on:
+        // - Event creator
+        // - Individual event owner
+        // - Organization members
+        // We should trust its determination instead of re-checking
+        if (filterType) {
+          const beforeFilter = rows.length;
           rows = rows.filter((r: any) => {
-            const isOrgPost = r.author_user_id && orgMemberIds!.has(r.author_user_id);
-            return filterType === 'organizer_only' ? isOrgPost : !isOrgPost;
+            // Use the Edge Function's is_organizer flag (fallback to author_is_organizer)
+            const isOrganizer = r.is_organizer ?? r.author_is_organizer ?? false;
+            const shouldInclude = filterType === 'organizer_only' ? isOrganizer : !isOrganizer;
+            
+            if (import.meta.env.DEV && !shouldInclude) {
+              console.log(`[EventPostsGrid] Filtering out post ${r.id}`, {
+                author_user_id: r.author_user_id,
+                is_organizer: isOrganizer,
+                filterType,
+                edgeFunctionFlag: r.is_organizer,
+                authorIsOrganizerFlag: r.author_is_organizer
+              });
+            }
+            
+            return shouldInclude;
           });
+          console.log(`[EventPostsGrid] Client-side filter using Edge Function flags: ${beforeFilter} → ${rows.length} posts`);
         }
 
         setPosts(rows.map((r: any) => ({
@@ -147,9 +167,9 @@ export function EventPostsGrid({ eventId, userId, onPostClick, showTaggedOnly = 
   if (posts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <MessageCircle className="h-12 w-12 text-white/20 mb-3" />
-        <p className="text-sm text-white/60">No posts yet</p>
-        <p className="text-xs text-white/40 mt-1">Be the first to share a moment!</p>
+        <MessageCircle className="h-12 w-12 text-foreground/20 mb-3" />
+        <p className="text-sm text-foreground/60">No posts yet</p>
+        <p className="text-xs text-foreground/40 mt-1">Be the first to share a moment!</p>
       </div>
     );
   }

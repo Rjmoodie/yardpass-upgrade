@@ -72,7 +72,13 @@ export const ActionRail: React.FC<ActionRailProps> = ({
               liked ? 'text-red-500 bg-red-500/20 border-red-500/40' : 'text-white'
             }`}
           >
-            <Heart className={`w-6 h-6 transition-all duration-200 ${liked ? 'fill-current scale-110' : ''}`} />
+            <Heart 
+              className={`w-6 h-6 transition-all duration-200 ${liked ? 'fill-current scale-110' : ''}`}
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+                WebkitFontSmoothing: 'antialiased',
+              }}
+            />
             <span className="rail-count">{Number(likeCount || 0).toLocaleString()}</span>
           </button>
 
@@ -90,7 +96,13 @@ export const ActionRail: React.FC<ActionRailProps> = ({
             }}
             className="feed-rail-btn transition-transform active:scale-90"
           >
-            <MessageCircle className="w-6 h-6" />
+            <MessageCircle 
+              className="w-6 h-6"
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+                WebkitFontSmoothing: 'antialiased',
+              }}
+            />
             <span className="rail-count">{Number(commentCount || 0).toLocaleString()}</span>
           </button>
 
@@ -108,7 +120,13 @@ export const ActionRail: React.FC<ActionRailProps> = ({
             }}
             className="feed-rail-btn transition-transform active:scale-90"
           >
-            <Share2 className="w-6 h-6" />
+            <Share2 
+              className="w-6 h-6"
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+                WebkitFontSmoothing: 'antialiased',
+              }}
+            />
             <span className="rail-count">{Number(shareCount || 0).toLocaleString()}</span>
           </button>
         </>
@@ -125,9 +143,21 @@ export const ActionRail: React.FC<ActionRailProps> = ({
             source: 'action_rail'
           });
         }}
-        className="flex items-center justify-center rounded-full bg-primary backdrop-blur-sm border border-primary/60 hover:bg-primary/90 transition-all duration-200 shadow-lg min-h-[52px] min-w-[52px] touch-manipulation active:scale-90"
+        className="flex items-center justify-center rounded-full bg-primary backdrop-blur-sm backdrop-blur-fallback border border-primary/60 hover:bg-primary/90 transition-all duration-200 shadow-lg min-h-[52px] min-w-[52px] touch-manipulation active:scale-90"
+        style={{
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
+        }}
       >
-        <Plus className="w-6 h-6 text-white" />
+        <Plus 
+          className="w-6 h-6 text-white"
+          style={{
+            imageRendering: '-webkit-optimize-contrast',
+            WebkitFontSmoothing: 'antialiased',
+          }}
+        />
       </button>
 
       <button
@@ -139,7 +169,13 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         }}
         className="feed-rail-btn transition-transform active:scale-90"
       >
-        <Flag className="w-5 h-5" />
+        <Flag 
+          className="w-5 h-5"
+          style={{
+            imageRendering: '-webkit-optimize-contrast',
+            WebkitFontSmoothing: 'antialiased',
+          }}
+        />
       </button>
 
       <button
@@ -151,7 +187,23 @@ export const ActionRail: React.FC<ActionRailProps> = ({
         }}
         className="feed-rail-btn transition-transform active:scale-90"
       >
-        {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        {soundEnabled ? (
+          <Volume2 
+            className="w-5 h-5"
+            style={{
+              imageRendering: '-webkit-optimize-contrast',
+              WebkitFontSmoothing: 'antialiased',
+            }}
+          />
+        ) : (
+          <VolumeX 
+            className="w-5 h-5"
+            style={{
+              imageRendering: '-webkit-optimize-contrast',
+              WebkitFontSmoothing: 'antialiased',
+            }}
+          />
+        )}
       </button>
     </div>
   );

@@ -1,5 +1,5 @@
 /**
- * Centralized logging utility for YardPass
+ * Centralized logging utility for Liventix
  * 
  * Provides consistent logging with environment-aware behavior:
  * - Production: Only errors and warnings

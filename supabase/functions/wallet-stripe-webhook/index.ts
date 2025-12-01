@@ -90,7 +90,11 @@ Deno.serve(async (req) => {
 
         // Persist PI id on invoice for later refunds/disputes mapping
         if (paymentIntentId) {
-          await sb.from("invoices").update({ stripe_payment_intent_id: paymentIntentId }).eq("id", invoiceId);
+          try {
+            await sb.from("invoices").update({ stripe_payment_intent_id: paymentIntentId }).eq("id", invoiceId);
+          } catch (updateErr: any) {
+            console.warn(`[wallet-webhook:${requestId}] Failed to update invoice with PI ID:`, updateErr?.message);
+          }
         }
 
         // Atomic apply - org or user wallet
@@ -158,7 +162,15 @@ Deno.serve(async (req) => {
           .select("id, wallet_id, org_wallet_id, credits_purchased, amount_usd_cents")
           .eq("stripe_payment_intent_id", piId)
           .maybeSingle();
-        if (invErr) throw invErr;
+        if (invErr) {
+          // Handle case where column doesn't exist (view might not be set up correctly)
+          if (invErr.message?.includes("does not exist") || invErr.message?.includes("wallet_id")) {
+            console.error(`[wallet-webhook:${requestId}] Invoice table/view issue:`, invErr.message);
+            console.error(`[wallet-webhook:${requestId}] This payment intent will be skipped. Please ensure the public.invoices view exists with wallet_id column.`);
+            break;
+          }
+          throw invErr;
+        }
         if (!inv) break;
 
         const receiptUrl = await getReceiptUrlFromPaymentIntent(piId);
@@ -229,7 +241,14 @@ Deno.serve(async (req) => {
           .select("id, wallet_id, org_wallet_id")
           .eq("stripe_payment_intent_id", piId)
           .maybeSingle();
-        if (invErr) throw invErr;
+        if (invErr) {
+          // Handle case where column doesn't exist
+          if (invErr.message?.includes("does not exist") || invErr.message?.includes("wallet_id")) {
+            console.error(`[wallet-webhook:${requestId}] Invoice table/view issue:`, invErr.message);
+            break;
+          }
+          throw invErr;
+        }
         if (!inv) {
           console.log(`[wallet-webhook:${requestId}] No invoice matched for refund (PI ${piId})`);
           break;
@@ -272,11 +291,19 @@ Deno.serve(async (req) => {
         const piId = (dispute.payment_intent as string) ?? (dispute.charge as string) ?? null;
         if (!piId) break;
 
-        const { data: inv } = await sb
+        const { data: inv, error: invErr } = await sb
           .from("invoices")
           .select("id, wallet_id, org_wallet_id")
           .eq("stripe_payment_intent_id", piId)
           .maybeSingle();
+        if (invErr) {
+          // Handle case where column doesn't exist
+          if (invErr.message?.includes("does not exist") || invErr.message?.includes("wallet_id")) {
+            console.error(`[wallet-webhook:${requestId}] Invoice table/view issue:`, invErr.message);
+            break;
+          }
+          // Non-critical error, continue
+        }
         if (inv) {
           if (inv.org_wallet_id) {
             await sb.from("org_wallets").update({ status: "frozen" }).eq("id", inv.org_wallet_id);

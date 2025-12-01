@@ -721,11 +721,12 @@ export default function UnifiedFeedList() {
               data-index={idx}
               className="snap-start snap-always flex items-center px-3 sm:px-6"
               style={{
+                // ✅ Each section fills the viewport (snap scrolling)
                 height: '100dvh',
                 minHeight: '-webkit-fill-available',
               }}
             >
-              <div className="mx-auto flex h-[calc(100dvh-5rem)] w-full max-w-5xl items-stretch">
+              <div className="mx-auto flex h-full w-full max-w-5xl items-stretch">
                 <div className="relative isolate flex h-full w-full overflow-hidden rounded-[32px] border border-white/12 bg-white/5 shadow-[0_40px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                   <div
                     className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.16)_0%,_transparent_55%)] opacity-70"
@@ -838,7 +839,6 @@ export default function UnifiedFeedList() {
             </div>
           </div>
         )}
-        <div className="h-24" aria-hidden="true" />
       </div>
 
       <FeedFilter
@@ -863,7 +863,6 @@ export default function UnifiedFeedList() {
           postId={commentContext.postId}
           mode="comment"
           onCommentCountChange={(postId, newCount) => {
-            console.log('💬 [UnifiedFeed] Comment count updated:', postId, newCount);
             applyEngagementDelta(postId, { mode: 'absolute', comment_count: newCount });
           }}
         />

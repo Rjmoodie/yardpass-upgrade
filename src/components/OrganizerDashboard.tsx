@@ -922,13 +922,36 @@ export default function OrganizerDashboard() {
   if (!organizations.length) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center py-16 border rounded-lg">
+        <div className="text-center py-16 border rounded-lg relative">
+          {/* Exit Organizer Mode Button - Top Right */}
+          <div className="absolute top-4 right-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={exitOrganizerMode}
+              className="items-center gap-2 border-muted-foreground/30"
+              title="Switch back to Attendee Mode"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="text-xs">Exit Organizer</span>
+            </Button>
+          </div>
+          
           <Building2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
           <h3 className="text-lg font-semibold mb-1">Create your first organization</h3>
           <p className="text-muted-foreground mb-4">You need an organization to access the organizer dashboard.</p>
-          <Button onClick={() => (window.location.href = '/create-organization')}>
-            <Building2 className="mr-2 h-4 w-4" /> New Organization
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <Button onClick={() => (window.location.href = '/create-organization')}>
+              <Building2 className="mr-2 h-4 w-4" /> New Organization
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={exitOrganizerMode}
+              className="text-muted-foreground"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Attendee Mode
+            </Button>
+          </div>
         </div>
       </div>
     );

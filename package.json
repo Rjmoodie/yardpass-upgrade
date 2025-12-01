@@ -91,6 +91,7 @@
     "@types/dompurify": "^3.2.0",
     "@types/qrcode": "^1.5.6",
     "@types/react-window": "^2.0.0",
+    "barcode-detector": "^3.0.8",
     "capacitor-plugin-safe-area": "^4.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

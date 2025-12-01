@@ -27,6 +27,8 @@ if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 // Prefer a pinned list of allowed origins; fall back to "*" if you truly need it.
 const ALLOWED_ORIGINS = new Set([
+  "https://yardpass.tech",
+  "https://www.yardpass.tech",
   "https://liventix.tech",
   "https://www.liventix.tech",
   "http://localhost:5173", // dev
@@ -105,7 +107,27 @@ function baseUrl(): string {
   }
   
   // Fallback to production domain
-  return "https://liventix.tech";
+  return "https://yardpass.tech";
+}
+
+function getLogoUrl(orgLogoUrl?: string): string {
+  // If org has a logo, use it (but ensure it's a full URL)
+  if (orgLogoUrl) {
+    // If it's already a full URL, use it
+    if (orgLogoUrl.startsWith("http://") || orgLogoUrl.startsWith("https://")) {
+      return orgLogoUrl;
+    }
+    // If it's a relative path, make it absolute
+    if (orgLogoUrl.startsWith("/")) {
+      return `${baseUrl()}${orgLogoUrl}`;
+    }
+    // Otherwise, assume it's a Supabase storage URL and use as-is
+    return orgLogoUrl;
+  }
+  
+  // Default fallback - use a reliable CDN or public URL
+  // Try multiple fallback options for maximum compatibility
+  return `${baseUrl()}/liventix-logo.png`;
 }
 
 function formatDate(value?: string) {
@@ -189,7 +211,7 @@ async function fetchEmailContext(eventId: string): Promise<{ orgInfo?: OrgInfo; 
         name: org.name,
         logoUrl: org.logo_url ?? undefined,
         websiteUrl: org.handle ? `${baseUrl()}/org/${org.handle}` : undefined,
-        supportEmail: "support@liventix.tech",
+        supportEmail: "support@yardpass.tech",
       };
     }
   }
@@ -223,10 +245,11 @@ function HiddenPreheader({ text }: { text?: string }) {
   );
 }
 
-function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string }) {
-  const logoUrl = orgInfo?.logoUrl || `https://liventix.tech/liventix-logo-full.png`;
-  const supportEmail = orgInfo?.supportEmail || "support@liventix.tech";
+function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBrowserUrl }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string; viewInBrowserUrl?: string }) {
+  const logoUrl = getLogoUrl(orgInfo?.logoUrl);
+  const supportEmail = orgInfo?.supportEmail || "support@yardpass.tech";
   const currentYear = new Date().getFullYear();
+  const homepageUrl = orgInfo?.websiteUrl || baseUrl();
 
   return React.createElement(
     "html",
@@ -242,9 +265,9 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
       React.createElement(
         "style",
         { type: "text/css" },
-        `body{margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;word-wrap:break-word}table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%!important}img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;max-width:100%!important}td,th{padding:8px;word-wrap:break-word}*{box-sizing:border-box}.responsive-banner{width:100%!important;max-width:100%!important}@media only screen and (max-width:640px){body{padding:0!important}.email-container{max-width:100%!important;width:100%!important;margin:0!important;border-radius:0!important}.email-padding{padding:20px 16px!important}.email-header-padding{padding:20px 16px!important}.email-footer-padding{padding:20px 16px!important}.responsive-img{max-width:100%!important;height:auto!important;display:block!important}.responsive-text{font-size:14px!important;line-height:1.6!important}.responsive-title{font-size:22px!important;line-height:1.3!important}.responsive-banner{padding:20px 16px!important;margin-bottom:20px!important}.responsive-button{width:100%!important;display:block!important;padding:14px 20px!important;font-size:16px!important}.hide-mobile{display:none!important;max-height:0!important;overflow:hidden!important;mso-hide:all}table[class="responsive-table"]{width:100%!important}td[class="responsive-table"]{display:block!important;width:100%!important;text-align:left!important;padding:10px 0!important}}@media only screen and (max-width:480px){.email-padding{padding:16px 12px!important}.email-header-padding{padding:16px 12px!important}.email-footer-padding{padding:16px 12px!important}.responsive-title{font-size:20px!important}.responsive-text{font-size:13px!important}.responsive-banner{padding:18px 14px!important;margin-bottom:18px!important}.responsive-banner h1{font-size:22px!important}.responsive-button{font-size:15px!important;padding:12px 18px!important}img[class="logo"]{max-width:200px!important;height:auto!important}}@media only screen and (min-width:641px){.email-container{max-width:640px!important}}@media only screen and (max-width:320px){.responsive-title{font-size:18px!important}.responsive-text{font-size:12px!important}.responsive-banner h1{font-size:20px!important}.responsive-banner{padding:16px 12px!important}}`,
+        `body{margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;word-wrap:break-word}table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%!important}img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;max-width:100%!important}td,th{padding:8px;word-wrap:break-word}*{box-sizing:border-box}.responsive-banner{width:100%!important;max-width:100%!important}.mobile-card{padding:16px!important;margin-bottom:16px!important}.mobile-text{font-size:14px!important;line-height:1.6!important}.mobile-title{font-size:18px!important;line-height:1.3!important}.mobile-button{width:100%!important;max-width:100%!important;display:block!important;padding:14px 20px!important;font-size:16px!important;margin:8px 0!important}@media only screen and (max-width:640px){body{padding:0!important}.email-container{max-width:100%!important;width:100%!important;margin:0!important;border-radius:0!important}.email-padding{padding:20px 16px!important}.email-header-padding{padding:20px 16px!important}.email-footer-padding{padding:20px 16px!important}.responsive-img{max-width:100%!important;height:auto!important;display:block!important}.responsive-text{font-size:14px!important;line-height:1.6!important}.responsive-title{font-size:22px!important;line-height:1.3!important}.responsive-banner{padding:24px 16px!important;margin-bottom:20px!important}.responsive-banner h1{font-size:24px!important;line-height:1.2!important}.responsive-banner p{font-size:15px!important}.responsive-button{width:100%!important;max-width:100%!important;display:block!important;padding:14px 20px!important;font-size:16px!important;margin:8px 0!important}.hide-mobile{display:none!important;max-height:0!important;overflow:hidden!important;mso-hide:all}table[class="responsive-table"]{width:100%!important}td[class="responsive-table"]{display:block!important;width:100%!important;text-align:left!important;padding:10px 0!important}table[class="mobile-stack"]{width:100%!important}table[class="mobile-stack"] td{display:block!important;width:100%!important;text-align:left!important;padding:6px 0!important}table[class="mobile-stack"] td:first-child{font-weight:600!important;color:#64748b!important;font-size:12px!important;text-transform:uppercase!important;letter-spacing:0.5px!important}.mobile-card{padding:16px!important;margin-bottom:16px!important;border-radius:12px!important}.mobile-card h3{font-size:16px!important;margin:0 0 12px 0!important}.mobile-card table td{font-size:14px!important;padding:6px 0!important}}@media only screen and (max-width:480px){.email-padding{padding:16px 12px!important}.email-header-padding{padding:16px 12px!important}.email-footer-padding{padding:16px 12px!important}.responsive-title{font-size:20px!important}.responsive-text{font-size:13px!important}.responsive-banner{padding:20px 14px!important;margin-bottom:18px!important}.responsive-banner h1{font-size:22px!important;line-height:1.2!important}.responsive-banner p{font-size:14px!important}.responsive-button{font-size:15px!important;padding:12px 18px!important}img[class="logo"]{max-width:200px!important;height:auto!important}.mobile-card{padding:14px!important;margin-bottom:14px!important}.mobile-card h3{font-size:15px!important}.mobile-card table td{font-size:13px!important}}@media only screen and (min-width:641px){.email-container{max-width:640px!important}}@media only screen and (max-width:320px){.responsive-title{font-size:18px!important}.responsive-text{font-size:12px!important}.responsive-banner h1{font-size:20px!important;line-height:1.2!important}.responsive-banner{padding:16px 12px!important}.responsive-banner p{font-size:13px!important}.mobile-card{padding:12px!important}}`,
       ),
-      React.createElement("title", {}, orgInfo?.name ? `${orgInfo.name} · Liventix` : "Liventix Ticket Confirmation"),
+      React.createElement("title", {}, orgInfo?.name ? `${orgInfo.name} · YardPass` : "YardPass Ticket Confirmation"),
     ),
     React.createElement(
       "body",
@@ -285,17 +308,70 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
                 padding: "28px 32px",
                 textAlign: "center",
                 borderRadius: "20px 20px 0 0",
+                position: "relative",
               },
             },
-            React.createElement("img", {
-              src: logoUrl,
-              alt: orgInfo?.name || "Liventix",
-              className: "logo responsive-img",
-              style: { height: "60px", maxWidth: "300px", marginBottom: "12px", width: "auto", display: "block", margin: "0 auto 12px auto" },
-              loading: "eager",
-              decoding: "sync",
-              onerror: `this.src='${baseUrl()}/liventix-logo-fallback.png'; this.onerror=null;`,
-            }),
+            React.createElement(
+              "table",
+              { width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
+              React.createElement(
+                "tbody",
+                {},
+                React.createElement(
+                  "tr",
+                  {},
+                  React.createElement(
+                    "td",
+                    { style: { textAlign: "left", verticalAlign: "middle" } },
+                    React.createElement(
+                      "a",
+                      { href: homepageUrl, style: { textDecoration: "none", display: "flex", alignItems: "center" } },
+                      // Logo image with explicit dimensions for email clients
+                      React.createElement("img", {
+                        src: logoUrl,
+                        alt: orgInfo?.name || "YardPass",
+                        className: "logo responsive-img",
+                        style: { 
+                          height: "40px", 
+                          maxWidth: "180px", 
+                          width: "auto", 
+                          display: "block",
+                          border: "0",
+                          outline: "none",
+                          textDecoration: "none",
+                          margin: "0",
+                          padding: "0",
+                        },
+                        width: "180",
+                        height: "40",
+                        loading: "eager",
+                        decoding: "sync",
+                      }),
+                      // Text fallback if image doesn't load (email clients often block images)
+                      React.createElement("span", {
+                        style: {
+                          display: "none",
+                          fontSize: "18px",
+                          fontWeight: "600",
+                          color: "#0f172a",
+                          marginLeft: "8px",
+                        },
+                        className: "logo-text-fallback",
+                      }, orgInfo?.name || "YardPass"),
+                    ),
+                  ),
+                  viewInBrowserUrl ? React.createElement(
+                    "td",
+                    { style: { textAlign: "right", verticalAlign: "middle" } },
+                    React.createElement(
+                      "a",
+                      { href: viewInBrowserUrl, style: { fontSize: "12px", color: "#64748b", textDecoration: "none" } },
+                      "View in browser",
+                    ),
+                  ) : null,
+                ),
+              ),
+            ),
           ),
           // org card
           orgInfo
@@ -357,17 +433,17 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
                 "Questions? Contact us at ",
                 React.createElement(
                   "a",
-                  { href: `mailto:${orgInfo?.supportEmail || "support@liventix.tech"}`, style: { color: "#6366f1", textDecoration: "none" } },
-                  orgInfo?.supportEmail || "support@liventix.tech",
+                  { href: `mailto:${orgInfo?.supportEmail || "support@yardpass.tech"}`, style: { color: "#6366f1", textDecoration: "none" } },
+                  orgInfo?.supportEmail || "support@yardpass.tech",
                 ),
               ),
-              React.createElement("p", { style: { margin: "0 0 16px 0", fontSize: "12px" } }, `© ${currentYear} Liventix. All rights reserved.`),
+              React.createElement("p", { style: { margin: "0 0 16px 0", fontSize: "12px" } }, `© ${currentYear} YardPass. All rights reserved.`),
               React.createElement(
                 "div",
                 { style: { fontSize: "11px", color: "#94a3b8" } },
-                React.createElement("a", { href: `${baseUrl()}/privacy`, style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Privacy Policy"),
+                React.createElement("a", { href: "https://yardpass.tech/privacy", style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Privacy Policy"),
                 " • ",
-                React.createElement("a", { href: `${baseUrl()}/terms`, style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Terms of Service"),
+                React.createElement("a", { href: "https://yardpass.tech/terms", style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Terms of Service"),
               ),
             ),
           ),
@@ -377,183 +453,218 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
   );
 }
 
-function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo }: { data: PurchaseConfirmationRequest; orgInfo?: OrgInfo; eventInfo?: EventInfo }) {
+function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo, ticketPdfUrl, onlineTicketPortalUrl }: { 
+  data: PurchaseConfirmationRequest; 
+  orgInfo?: OrgInfo; 
+  eventInfo?: EventInfo;
+  ticketPdfUrl?: string;
+  onlineTicketPortalUrl?: string;
+}) {
   const title = eventInfo?.title || data.eventTitle;
   const isRsvp = data.isRsvpOnly || false;
   const preheaderText = isRsvp
     ? `Your RSVP for ${title} is confirmed. See you there!`
-    : `Your tickets for ${title} are confirmed. Access them anytime with Liventix.`;
+    : `View your tickets, download the PDF, and see all event details for ${formatDate(eventInfo?.date || data.eventDate) || "TBA"} in ${eventInfo?.location || data.eventLocation}.`;
   const formattedDate = formatDate(eventInfo?.date || data.eventDate);
   const formattedTotal = formatCurrency(data.totalAmount);
+  
+  // Parse date for human-readable formatting
+  const eventDateObj = eventInfo?.date || data.eventDate ? new Date(eventInfo?.date || data.eventDate || Date.now()) : null;
+  const eventDateHuman = eventDateObj ? eventDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : formattedDate;
+  const eventTimeHuman = eventDateObj ? eventDateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : undefined;
+  const eventTimezone = eventDateObj ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+  
+  // Generate URLs if not provided
+  const pdfUrl = ticketPdfUrl || (data.orderId ? `${baseUrl()}/tickets/download/${data.orderId}` : undefined);
+  const portalUrl = onlineTicketPortalUrl || `${baseUrl()}/tickets`;
+  const calendarUrl = eventDateObj ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${eventDateObj.toISOString().replace(/[-:]/g, '').split('.')[0]}Z%2F${new Date(eventDateObj.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=${encodeURIComponent(`${title} at ${eventInfo?.venue || data.eventLocation}`)}&location=${encodeURIComponent(eventInfo?.venue || data.eventLocation)}` : undefined;
+  const transferUrl = `${baseUrl()}/tickets/transfer/${data.orderId}`;
 
+  // Generate view in browser URL
+  const viewInBrowserUrl = `${baseUrl()}/tickets/view/${data.orderId}`;
+
+  // Skip PDF-first hero for RSVP-only
+  if (isRsvp) {
+    return React.createElement(
+      BaseEmailLayout,
+      { orgInfo, eventInfo, preheaderText, viewInBrowserUrl },
+      // RSVP version (simplified)
+      React.createElement(
+        "div",
+        { style: { background: "linear-gradient(135deg, #03A9F4 0%, #0288D1 100%)", color: "#ffffff", padding: "24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
+        React.createElement("div", { style: { fontSize: "32px", marginBottom: "8px" } }, "✅"),
+        React.createElement("h1", { style: { margin: 0, fontSize: "26px", fontWeight: 700 } }, "RSVP Confirmed!"),
+        React.createElement("p", { style: { margin: "10px 0 0 0", fontSize: "15px", opacity: 0.95 } }, "You're all set! No ticket required."),
+      ),
+      React.createElement(
+        "div",
+        { style: { marginBottom: "24px" } },
+        React.createElement("h2", { style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "20px", fontWeight: 600 } }, `Hi ${data.customerName} 👋`),
+        React.createElement("p", { style: { margin: 0, color: "#475569", fontSize: "15px", lineHeight: 1.6 } }, `Thank you for your RSVP! You're confirmed for ${title}. Just show up and enjoy!`),
+      ),
+      // Event details and other sections for RSVP...
+    );
+  }
+
+  // Full purchase confirmation template (PDF-first approach)
   return React.createElement(
     BaseEmailLayout,
-    { orgInfo, eventInfo, preheaderText },
+    { orgInfo, eventInfo, preheaderText, viewInBrowserUrl },
+    // 1. CONFIRMATION HERO (PDF-first)
     React.createElement(
       "div",
-      { style: { background: "linear-gradient(135deg, #03A9F4 0%, #0288D1 100%)", color: "#ffffff", padding: "24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
-      React.createElement("div", { style: { fontSize: "32px", marginBottom: "8px" } }, isRsvp ? "✅" : "🎉"),
-      React.createElement("h1", { style: { margin: 0, fontSize: "26px", fontWeight: 700 } }, isRsvp ? "RSVP Confirmed!" : "Purchase Confirmed!"),
-      React.createElement("p", { style: { margin: "10px 0 0 0", fontSize: "15px", opacity: 0.95 } }, isRsvp ? "You're all set! No ticket required." : "Your tickets are ready to scan at the door."),
+      { className: "responsive-banner", style: { background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)", color: "#ffffff", padding: "32px 24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
+      React.createElement("div", { style: { fontSize: "40px", marginBottom: "12px" } }, "🎉"),
+      React.createElement("h1", { style: { margin: "0 0 8px 0", fontSize: "28px", fontWeight: 700 } }, "Purchase Confirmed!"),
+      React.createElement("p", { style: { margin: "0 0 24px 0", fontSize: "16px", opacity: 0.95 } }, `Your tickets to ${title} are confirmed and ready to scan at the door.`),
+      // Primary CTA: Download Ticket PDF
+      pdfUrl ? React.createElement(
+        "a",
+        {
+          href: pdfUrl,
+          className: "responsive-button",
+          style: {
+            display: "inline-block",
+            backgroundColor: "#ffffff",
+            color: "#007bff",
+            padding: "14px 28px",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontSize: "16px",
+            fontWeight: 600,
+            marginBottom: "12px",
+            width: "100%",
+            maxWidth: "280px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+          },
+        },
+        "📥 Download Ticket PDF",
+      ) : null,
+      // Secondary CTA: View Tickets Online
+      portalUrl ? React.createElement(
+        "a",
+        {
+          href: portalUrl,
+          className: "responsive-button",
+          style: {
+            display: "inline-block",
+            backgroundColor: "transparent",
+            color: "#ffffff",
+            border: "2px solid #ffffff",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontSize: "15px",
+            fontWeight: 600,
+            width: "100%",
+            maxWidth: "280px",
+            marginTop: "8px",
+          },
+        },
+        "View Tickets Online",
+      ) : null,
     ),
-    eventInfo?.coverImageUrl
-      ? React.createElement(
-          "div",
-          { style: { marginBottom: "28px", borderRadius: "16px", overflow: "hidden" } },
-          React.createElement("img", { src: eventInfo.coverImageUrl, alt: title, style: { width: "100%", height: "auto", display: "block" } }),
-        )
-      : null,
+    // 2. PERSONALIZED GREETING
     React.createElement(
       "div",
       { style: { marginBottom: "24px" } },
-      data.isGuest
+      React.createElement("h2", { style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "20px", fontWeight: 600 } }, `Hi ${data.customerName} 👋`),
+      React.createElement(
+        "p",
+        { style: { margin: 0, color: "#475569", fontSize: "15px", lineHeight: 1.6 } },
+        "Thank you for your purchase! Your tickets for ",
+        React.createElement("strong", {}, title),
+        " have been confirmed and are ready to use.",
+      ),
+    ),
+    // 3. EVENT SNAPSHOT CARD
+    React.createElement(
+      "div",
+      { className: "mobile-card", style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
+      eventInfo?.coverImageUrl
         ? React.createElement(
             "div",
-            {},
-            React.createElement("h2", { style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "20px", fontWeight: 600 } }, "🎉 Your Tickets Are Ready!"),
-            React.createElement(
-              "p",
-              { style: { margin: "0 0 16px 0", color: "#475569", fontSize: "15px", lineHeight: 1.6 } },
-              isRsvp 
-                ? `Thank you for your RSVP! You're confirmed for ${title}. Just show up and enjoy!`
-                : "Thank you for your purchase! Your tickets for ",
-              !isRsvp ? React.createElement("strong", {}, title) : null,
-              !isRsvp ? " have been confirmed and are ready to use." : null,
-            ),
-            React.createElement(
-              "div",
-              { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "16px", marginBottom: "16px" } },
-              React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "🚀 Get the Best Experience"),
-              React.createElement(
-                "p",
-                { style: { margin: "0 0 12px 0", color: "#475569", fontSize: "14px", lineHeight: 1.5 } },
-                "Create a free Liventix account to manage your tickets, get event updates, and discover amazing events in your area.",
-              ),
-              React.createElement(
-                "a",
-                { href: `${baseUrl()}/auth/signup?email=${encodeURIComponent(data.customerEmail)}`, style: { display: "inline-block", backgroundColor: "#0ea5e9", color: "white", padding: "10px 20px", borderRadius: "8px", textDecoration: "none", fontSize: "14px", fontWeight: 600 } },
-                "Create Free Account",
-              ),
-            ),
+            { style: { marginBottom: "16px", borderRadius: "12px", overflow: "hidden" } },
+            React.createElement("img", { src: eventInfo.coverImageUrl, alt: title, className: "responsive-img", style: { width: "100%", height: "auto", display: "block" } }),
           )
-        : React.createElement(
-            "div",
-            {},
-            React.createElement("h2", { style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "20px", fontWeight: 600 } }, `Hi ${data.customerName} 👋`),
-            React.createElement(
-              "p",
-              { style: { margin: 0, color: "#475569", fontSize: "15px", lineHeight: 1.6 } },
-              isRsvp 
-                ? `Thank you for your RSVP! You're confirmed for ${title}. Just show up and enjoy!`
-                : "Thank you for your purchase! Your tickets for ",
-              !isRsvp ? React.createElement("strong", {}, title) : null,
-              !isRsvp ? " have been confirmed and are ready to use." : null,
-            ),
-          ),
-    ),
-    React.createElement(
-      "div",
-      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
-      React.createElement("h3", { style: { margin: "0 0 16px 0", color: "#0f172a", fontSize: "17px", fontWeight: 600 } }, "📅 Event Details"),
+        : null,
       React.createElement(
         "table",
-        { width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
+        { className: "mobile-stack", width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
         React.createElement(
           "tbody",
           {},
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b", width: "35%" } }, "Event"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, title)),
-          formattedDate ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, "Date & Time"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, formattedDate)) : null,
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, "Location"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, eventInfo?.venue || eventInfo?.location || data.eventLocation)),
-          eventInfo?.venue && eventInfo.location && eventInfo.location !== eventInfo.venue ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, "City"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, eventInfo.location)) : null,
-          eventInfo?.description ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b", verticalAlign: "top" } }, "About"), React.createElement("td", { style: { padding: "6px 0", fontSize: "14px", color: "#475569", lineHeight: 1.6 } }, eventInfo.description)) : null,
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "13px", color: "#64748b", width: "35%" } }, "Event"), React.createElement("td", { style: { padding: "8px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, title)),
+          eventDateHuman ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "13px", color: "#64748b" } }, "Date & Time"), React.createElement("td", { style: { padding: "8px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, `${eventDateHuman}${eventTimeHuman ? ` · ${eventTimeHuman}` : ""}${eventTimezone ? ` ${eventTimezone}` : ""}`)) : null,
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "13px", color: "#64748b" } }, "Location"), React.createElement("td", { style: { padding: "8px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, eventInfo?.venue || eventInfo?.location || data.eventLocation)),
+          eventInfo?.venue && eventInfo.location && eventInfo.location !== eventInfo.venue ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "13px", color: "#64748b" } }, "City"), React.createElement("td", { style: { padding: "8px 0", fontSize: "15px", color: "#0f172a", fontWeight: 500 } }, eventInfo.location)) : null,
         ),
       ),
-    ),
-    React.createElement(
-      "div",
-      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
-      React.createElement("h3", { style: { margin: "0 0 16px 0", color: "#0f172a", fontSize: "17px", fontWeight: 600 } }, isRsvp ? "✅ Your RSVP" : "🎟️ Your Tickets"),
-      React.createElement(
-        "table",
-        { width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
+      calendarUrl ? React.createElement(
+        "div",
+        { style: { marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e2e8f0" } },
         React.createElement(
-          "tbody",
-          {},
-          !isRsvp ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, "Ticket Type"), React.createElement("td", { style: { padding: "6px 0", fontSize: "15px", color: "#0f172a", fontWeight: 600, textAlign: "right" } }, data.ticketType)) : null,
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "13px", color: "#64748b" } }, isRsvp ? "Guests" : "Quantity"), React.createElement("td", { style: { padding: "6px 0", fontSize: "18px", color: "#0f172a", fontWeight: 700, textAlign: "right" } }, `×${data.rsvpCount || data.quantity}`)),
-          !isRsvp && formattedTotal ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "15px", color: "#64748b", fontWeight: 500 } }, "Total Paid"), React.createElement("td", { style: { padding: "12px 0 6px 0", fontSize: "20px", color: "#0f172a", fontWeight: 700, textAlign: "right" } }, formattedTotal)) : null,
-          React.createElement("tr", {}, React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#64748b" } }, "Order ID"), React.createElement("td", { style: { padding: "6px 0", fontSize: "12px", color: "#64748b", fontFamily: "monospace", textAlign: "right" } }, data.orderId)),
+          "a",
+          { href: calendarUrl, style: { fontSize: "13px", color: "#007bff", textDecoration: "none" } },
+          "📅 Add to calendar →",
         ),
-      ),
-      !isRsvp ? React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#475569", lineHeight: 1.6 } }, "Need to transfer tickets to a guest? Forward this email or share access from your Liventix account.") : null,
+      ) : null,
     ),
-    data.qrCodes && data.qrCodes.length > 0
-      ? React.createElement(
-          "div",
-          { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "24px", marginBottom: "28px" } },
-          React.createElement("div", { style: { fontSize: "15px", color: "#0f172a", fontWeight: 600, marginBottom: "16px", textAlign: "center" } }, data.qrCodes.length === 1 ? "Your Entry Pass" : `Your Entry Passes (${data.qrCodes.length})`),
-          React.createElement(
-            "div",
-            { style: { display: "grid", gridTemplateColumns: data.qrCodes.length === 1 ? "1fr" : data.qrCodes.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr", gap: "16px", justifyItems: "center" } },
-            ...data.qrCodes.map((qr: any, idx: number) =>
-              React.createElement(
-                "div",
-                { key: idx, style: { textAlign: "center" } },
-                React.createElement("div", { style: { fontSize: "12px", color: "#64748b", marginBottom: "8px", fontWeight: 600 } }, qr.ticketType),
-                React.createElement("img", { src: qr.qrCodeUrl, alt: `QR Code ${idx + 1}`, style: { maxWidth: "180px", width: "100%", height: "auto", display: "block", margin: "0 auto", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", backgroundColor: "#ffffff" } }),
-                React.createElement("div", { style: { fontFamily: "'Courier New', monospace", fontSize: "14px", color: "#0f172a", fontWeight: 700, marginTop: "8px", letterSpacing: "2px" } }, qr.qrText),
-              )
-            )
-          ),
-          React.createElement("p", { style: { margin: "16px 0 0 0", fontSize: "13px", color: "#64748b", textAlign: "center" } }, data.qrCodes.length === 1 ? "Present this QR code at check-in" : "Present these QR codes at check-in (one per person)"),
-          React.createElement("p", { style: { margin: "8px 0 0 0", fontSize: "12px", color: "#94a3af", textAlign: "center" } }, "💾 Download the attached PDF for offline access"),
-        )
-      : null,
-    // ✅ Only show attachment notice for paid tickets (skip for RSVP)
-    !isRsvp ? React.createElement(
+    // 4. ABOUT THE EVENT (Optional - short description)
+    eventInfo?.description ? React.createElement(
       "div",
-      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "28px", textAlign: "center" } },
-      React.createElement("div", { style: { fontSize: "24px", marginBottom: "8px" } }, "📎"),
-      React.createElement("h3", { style: { margin: "0 0 8px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "Your Ticket PDF is Attached"),
-      React.createElement("p", { style: { margin: "0", color: "#475569", fontSize: "14px", lineHeight: 1.6 } }, "Download and save the attached PDF file. Present the QR code from the PDF at check-in for quick entry."),
+      { className: "mobile-card", style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
+      React.createElement("h3", { className: "mobile-title", style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "17px", fontWeight: 600 } }, "About this event"),
+      React.createElement("p", { className: "mobile-text", style: { margin: 0, color: "#475569", fontSize: "14px", lineHeight: 1.6 } }, eventInfo.description.length > 200 ? `${eventInfo.description.substring(0, 200)}...` : eventInfo.description),
     ) : null,
-    // Add to Wallet buttons
-    data.walletLinks && data.walletLinks.length > 0 && (data.walletLinks[0].appleWallet || data.walletLinks[0].googleWallet)
-      ? React.createElement(
-          "div",
-          { style: { textAlign: "center", marginBottom: "20px" } },
-          React.createElement("div", { style: { fontSize: "13px", color: "#64748b", marginBottom: "12px" } }, "📲 Add to your mobile wallet for quick access"),
-      React.createElement(
-            "div",
-            { style: { display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" } },
-            data.walletLinks[0].appleWallet
-              ? React.createElement(
-                  "a",
-                  { href: data.walletLinks[0].appleWallet, style: { display: "inline-block", backgroundColor: "#000000", color: "#ffffff", padding: "10px 20px", textDecoration: "none", borderRadius: "8px", fontSize: "14px", fontWeight: 600 } },
-                  " Add to Apple Wallet",
-                )
-              : null,
-            data.walletLinks[0].googleWallet
-              ? React.createElement(
-                  "a",
-                  { href: data.walletLinks[0].googleWallet, style: { display: "inline-block", backgroundColor: "#4285f4", color: "#ffffff", padding: "10px 20px", textDecoration: "none", borderRadius: "8px", fontSize: "14px", fontWeight: 600 } },
-                  "🔷 Add to Google Wallet",
-                )
-              : null,
-          ),
-          React.createElement("div", { style: { fontSize: "11px", color: "#94a3af", marginTop: "8px" } }, "Wallet passes will be activated once configured"),
-        )
-      : null,
+    // 5. TICKET & ORDER SUMMARY
     React.createElement(
       "div",
-      { style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px" } },
-      React.createElement("h3", { style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "✨ Helpful Tips"),
+      { className: "mobile-card", style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
+      React.createElement("h3", { className: "mobile-title", style: { margin: "0 0 16px 0", color: "#0f172a", fontSize: "17px", fontWeight: 600 } }, "Your Tickets"),
+      React.createElement(
+        "table",
+        { className: "mobile-stack", width: "100%", cellPadding: 0, cellSpacing: 0, role: "presentation" },
+        React.createElement(
+          "tbody",
+          {},
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "13px", color: "#64748b" } }, "Ticket Type"), React.createElement("td", { style: { padding: "8px 0", fontSize: "15px", color: "#0f172a", fontWeight: 600, textAlign: "right" } }, data.ticketType)),
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "13px", color: "#64748b" } }, "Quantity"), React.createElement("td", { style: { padding: "8px 0", fontSize: "18px", color: "#0f172a", fontWeight: 700, textAlign: "right" } }, `×${data.quantity}`)),
+          formattedTotal ? React.createElement("tr", {}, React.createElement("td", { style: { padding: "12px 0 8px 0", fontSize: "15px", color: "#64748b", fontWeight: 500 } }, "Total Paid"), React.createElement("td", { style: { padding: "12px 0 8px 0", fontSize: "20px", color: "#0f172a", fontWeight: 700, textAlign: "right" } }, formattedTotal)) : null,
+          React.createElement("tr", {}, React.createElement("td", { style: { padding: "8px 0", fontSize: "12px", color: "#64748b" } }, "Order ID"), React.createElement("td", { style: { padding: "8px 0", fontSize: "12px", color: "#64748b", fontFamily: "monospace", textAlign: "right" } }, data.orderId)),
+        ),
+      ),
+    ),
+    // 6. HOW TO USE YOUR TICKETS (PDF Flow)
+    React.createElement(
+      "div",
+      { className: "mobile-card", style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px", marginBottom: "20px" } },
+      React.createElement("h3", { className: "mobile-title", style: { margin: "0 0 16px 0", color: "#0f172a", fontSize: "17px", fontWeight: 600 } }, "How to use your tickets"),
+      React.createElement(
+        "ol",
+        { className: "mobile-text", style: { margin: 0, paddingLeft: "20px", color: "#475569", fontSize: "14px", lineHeight: 1.8 } },
+        React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Download your PDF"), " — Click Download Ticket PDF at the top of this email to save your tickets."),
+        React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Bring the QR code"), " — Open the PDF on your phone or print it. The QR code in the PDF will be scanned at check-in."),
+        React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Bring a valid ID"), " — Some events may require ID that matches the ticket holder name."),
+      ),
+    ),
+    // 7. IMPORTANT EVENT INFO (Optional - only show if data provided)
+    // Note: This section can be populated with doors_time_human, show_time_human, entry_requirements, etc.
+    // For now, we'll hide it if there's no specific event metadata available
+    // Future enhancement: Add event metadata fields to EventInfo type and populate from database
+    null, // Placeholder - can be enhanced with actual event metadata when available
+    // 8. HELPFUL TIPS
+    React.createElement(
+      "div",
+      { className: "mobile-card", style: { backgroundColor: "#fafafa", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "20px" } },
+      React.createElement("h3", { className: "mobile-title", style: { margin: "0 0 12px 0", color: "#0f172a", fontSize: "16px", fontWeight: 600 } }, "✨ Helpful Tips"),
       React.createElement(
         "ul",
-        { style: { margin: 0, paddingLeft: "20px", color: "#475569", fontSize: "14px", lineHeight: 1.8 } },
-        React.createElement("li", {}, "Add this event to your calendar and plan your arrival."),
-        !isRsvp ? React.createElement("li", {}, "Bring a valid ID and have your QR code ready for scanning.") : React.createElement("li", {}, "Just show up - no ticket required for free entry!"),
-        React.createElement("li", {}, isRsvp ? "Save this email for your RSVP confirmation." : "Save this email for easy access to your tickets and order details."),
+        { className: "mobile-text", style: { margin: 0, paddingLeft: "20px", color: "#475569", fontSize: "14px", lineHeight: 1.8 } },
+        React.createElement("li", {}, "Add this event to your calendar so you don't miss it."),
+        React.createElement("li", {}, "Arrive a little early to allow time for security and check-in."),
+        React.createElement("li", {}, "Bring a valid ID and have your QR code ready for scanning."),
+        React.createElement("li", {}, "Save this email for easy access to your tickets and order details."),
       ),
     ),
   );
@@ -624,8 +735,8 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     format: 'a4'
   });
 
-  // Liventix Brand Colors - Blue Theme Only
-  const primaryBlue = [3, 169, 244];     // #03A9F4 - Liventix Blue
+  // YardPass Brand Colors - Blue Theme Only
+  const primaryBlue = [3, 169, 244];     // #03A9F4 - YardPass Blue
   const lightBlue = [129, 212, 250];     // #81D4FA - Light blue (highlights)
   const darkBlue = [2, 136, 209];        // #0288D1 - Dark blue (accents)
   const mutedGray = [151, 148, 165];     // #9794A5 - Muted gray
@@ -652,7 +763,7 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.text(orgInfo?.name || 'Liventix', 105, 15, { align: 'center' });
+    doc.text(orgInfo?.name || 'YardPass', 105, 15, { align: 'center' });
     
     // Event title
     doc.setFontSize(16);
@@ -782,8 +893,8 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.setFontSize(7);
     doc.setTextColor(...mutedGray);
     const footerText = orgInfo?.name 
-      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@liventix.tech'} - liventix.tech`
-      : 'Liventix - support@liventix.tech - liventix.tech';
+      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@yardpass.tech'} - yardpass.tech`
+      : 'YardPass - support@yardpass.tech - yardpass.tech';
     doc.text(footerText, 105, 290, { align: 'center' });
   });
 
@@ -915,7 +1026,7 @@ async function generateTicketHTML(ticketIds: string[], eventTitle: string, custo
         (ticket.id as string).slice(0, 8)
       }</div></div></div>`;
     })
-    .join("")}<div class="footer"><strong>Liventix</strong><br/>For support, visit liventix.tech or email support@liventix.tech<br/>This ticket is valid for entry and cannot be duplicated.</div></div></body></html>`;
+    .join("")}<div class="footer"><strong>YardPass</strong><br/>For support, visit yardpass.tech or email support@yardpass.tech<br/>This ticket is valid for entry and cannot be duplicated.</div></div></body></html>`;
 
   return {
     content: btoa(unescape(encodeURIComponent(html))),
@@ -924,6 +1035,16 @@ async function generateTicketHTML(ticketIds: string[], eventTitle: string, custo
     disposition: "attachment",
   } as const;
 }
+
+/**
+ * ---------------------------
+ * Logging Helper
+ * ---------------------------
+ */
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[SEND-PURCHASE-CONFIRMATION] ${step}${detailsStr}`);
+};
 
 /**
  * ---------------------------
@@ -942,31 +1063,54 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   const requestId = crypto.randomUUID();
+  logStep("Function started", { requestId, method: req.method });
 
   try {
     const raw = await req.json();
+    logStep("Request received", { requestId, hasData: !!raw, orderId: raw?.orderId });
+    
     const parsed = RequestSchema.safeParse(raw);
     if (!parsed.success) {
-      console.warn("❗ Validation failed", { requestId, issues: parsed.error.flatten() });
+      logStep("Validation failed", { requestId, issues: parsed.error.flatten() });
       return new Response(JSON.stringify({ error: "Invalid payload", details: parsed.error.flatten() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = parsed.data;
+    logStep("Request validated", { 
+      requestId, 
+      orderId: data.orderId, 
+      customerEmail: data.customerEmail,
+      eventTitle: data.eventTitle,
+      quantity: data.quantity,
+      ticketIdsCount: data.ticketIds?.length || 0,
+      isRsvpOnly: data.isRsvpOnly || false
+    });
+    
     const isGuest = data.isGuest ?? (!data.userId || data.customerName === "User");
+    logStep("Customer type determined", { requestId, isGuest, userId: data.userId });
 
     // Hydrate context if needed
     let orgInfo = data.orgInfo;
     let eventInfo = data.eventInfo;
     if (data.eventId && (!orgInfo || !eventInfo)) {
+      logStep("Fetching email context", { requestId, eventId: data.eventId });
       const context = await fetchEmailContext(data.eventId);
       orgInfo = orgInfo || context.orgInfo;
       eventInfo = eventInfo || context.eventInfo;
+      logStep("Email context fetched", { 
+        requestId, 
+        hasOrgInfo: !!orgInfo, 
+        hasEventInfo: !!eventInfo,
+        orgName: orgInfo?.name,
+        eventTitle: eventInfo?.title
+      });
     }
 
     // Generate QR codes for inline display
     // Show all QR codes inline if 3 or fewer tickets, otherwise just first one
     let qrCodes: Array<{ qrCodeUrl: string; qrText: string; ticketType: string }> = [];
     if (data.ticketIds?.length) {
+      logStep("Generating QR codes for inline display", { requestId, ticketCount: data.ticketIds.length });
       try {
         const limit = data.ticketIds.length <= 3 ? data.ticketIds.length : 1;
         const { data: tickets } = await supabase
@@ -983,10 +1127,15 @@ const handler = async (req: Request): Promise<Response> => {
               ticketType: ticket.ticket_tiers?.name || "General Admission"
             }))
           );
+          logStep("QR codes generated", { requestId, qrCodeCount: qrCodes.length });
+        } else {
+          logStep("No tickets found for QR code generation", { requestId, ticketIds: data.ticketIds });
         }
       } catch (err) {
-        console.error("QR code generation failed", { requestId, err });
+        logStep("QR code generation failed", { requestId, error: err });
       }
+    } else {
+      logStep("Skipping QR code generation (no ticketIds)", { requestId, isRsvpOnly: data.isRsvpOnly });
     }
 
     // Generate wallet pass links (Apple/Google Wallet)
@@ -1003,10 +1152,11 @@ const handler = async (req: Request): Promise<Response> => {
     // ✅ Skip attachment for RSVP-only (no tickets issued)
     let ticketAttachment: { filename: string; content: string; contentType: string; disposition: string } | undefined;
     if (!data.isRsvpOnly && (data.ticketIds?.length || data.orderId)) {
+      logStep("Preparing ticket attachment", { requestId, ticketIdsCount: data.ticketIds?.length || 0, orderId: data.orderId });
       try {
         // Probe: verify tickets exist or try to resolve by orderId
         if (data.ticketIds?.length) {
-          console.log(`[${requestId}] Received ticketIds:`, { ticketIds: data.ticketIds, orderId: data.orderId });
+          logStep("Probing tickets in database", { requestId, ticketIds: data.ticketIds, orderId: data.orderId });
           
           const { data: ticketsProbe, error: probeErr } = await supabase
             .from("tickets")
@@ -1014,11 +1164,12 @@ const handler = async (req: Request): Promise<Response> => {
             .in("id", data.ticketIds);
 
           if (probeErr) {
-            console.error(`[${requestId}] Ticket probe query error:`, probeErr);
+            logStep("Ticket probe query error", { requestId, error: probeErr });
           }
           
           if (!ticketsProbe || ticketsProbe.length === 0) {
-            console.warn(`[${requestId}] ticketIds not found in database. Attempting orderId fallback...`, { 
+            logStep("TicketIds not found, attempting orderId fallback", { 
+              requestId,
               ticketIds: data.ticketIds, 
               orderId: data.orderId 
             });
@@ -1031,50 +1182,75 @@ const handler = async (req: Request): Promise<Response> => {
                 .eq("order_id", data.orderId);
 
               if (orderErr) {
-                console.error(`[${requestId}] Order lookup error:`, orderErr);
+                logStep("Order lookup error", { requestId, error: orderErr });
               } else if (byOrder && byOrder.length > 0) {
                 data.ticketIds = byOrder.map((t: any) => t.id);
-                console.log(`[${requestId}] ✅ Resolved ${data.ticketIds.length} tickets from orderId`, { 
+                logStep("Resolved tickets from orderId", { 
+                  requestId,
                   orderId: data.orderId,
+                  ticketCount: data.ticketIds.length,
                   ticketIds: data.ticketIds 
                 });
               } else {
-                console.error(`[${requestId}] ❌ No tickets found by orderId either`, { orderId: data.orderId });
+                logStep("No tickets found by orderId", { requestId, orderId: data.orderId });
               }
             }
           } else {
-            console.log(`[${requestId}] ✅ Found ${ticketsProbe.length} tickets in database`);
+            logStep("Tickets found in database", { requestId, ticketCount: ticketsProbe.length });
           }
         }
 
         // Now try to generate PDF
         if (data.ticketIds?.length) {
-          console.log(`[${requestId}] Generating PDF for ${data.ticketIds.length} tickets`);
+          logStep("Generating PDF attachment", { requestId, ticketCount: data.ticketIds.length });
           const pdf = await generateTicketPDF(data.ticketIds, eventInfo?.title || data.eventTitle, data.customerName, orgInfo);
           ticketAttachment = { filename: pdf.filename, content: pdf.content, contentType: pdf.type, disposition: pdf.disposition } as const;
-          console.log(`[${requestId}] PDF generated successfully: ${pdf.filename}, size: ${pdf.content.length} bytes`);
+          logStep("PDF generated successfully", { 
+            requestId, 
+            filename: pdf.filename, 
+            sizeBytes: pdf.content.length 
+          });
+        } else {
+          logStep("Skipping PDF generation (no ticketIds)", { requestId });
         }
       } catch (err) {
-        console.error(`[${requestId}] PDF attachment generation failed`, err);
+        logStep("PDF attachment generation failed", { requestId, error: err });
         // Fallback to HTML if PDF fails
         if (data.ticketIds?.length) {
           try {
-            console.log(`[${requestId}] Falling back to HTML attachment`);
+            logStep("Falling back to HTML attachment", { requestId });
             const html = await generateTicketHTML(data.ticketIds, eventInfo?.title || data.eventTitle, data.customerName);
             ticketAttachment = { filename: html.filename, content: html.content, contentType: html.type, disposition: html.disposition } as const;
-            console.log(`[${requestId}] HTML generated successfully: ${html.filename}`);
+            logStep("HTML generated successfully", { requestId, filename: html.filename });
           } catch (htmlErr) {
-            console.error(`[${requestId}] HTML fallback also failed`, htmlErr);
+            logStep("HTML fallback also failed", { requestId, error: htmlErr });
           }
         }
       }
     } else {
-      console.warn(`[${requestId}] No ticketIds or orderId provided to generate attachment`);
+      logStep("Skipping attachment generation", { 
+        requestId, 
+        isRsvpOnly: data.isRsvpOnly, 
+        hasTicketIds: !!data.ticketIds?.length,
+        hasOrderId: !!data.orderId
+      });
     }
+
+    // Generate PDF download URL (if PDF was generated)
+    const ticketPdfUrl = ticketAttachment && data.orderId 
+      ? `${baseUrl()}/tickets/download/${data.orderId}` 
+      : undefined;
+    const onlineTicketPortalUrl = `${baseUrl()}/tickets`;
 
     // Render HTML and a small text fallback for spam filters/clients
     const html = "<!DOCTYPE html>" + renderToStaticMarkup(
-      React.createElement(PurchaseConfirmationTemplate, { data: { ...data, isGuest, qrCodes, walletLinks }, orgInfo, eventInfo }),
+      React.createElement(PurchaseConfirmationTemplate, { 
+        data: { ...data, isGuest, qrCodes, walletLinks }, 
+        orgInfo, 
+        eventInfo,
+        ticketPdfUrl,
+        onlineTicketPortalUrl,
+      }),
     );
     const text = data.isRsvpOnly
       ? `RSVP Confirmed\n\nEvent: ${eventInfo?.title || data.eventTitle}\nWhen: ${formatDate(eventInfo?.date || data.eventDate) || "TBA"}\nWhere: ${eventInfo?.venue || eventInfo?.location || data.eventLocation}\nGuests: ${data.rsvpCount || data.quantity}\nOrder ID: ${data.orderId}\n\nYou're all set! No ticket required - just show up and enjoy the event.`
@@ -1084,17 +1260,17 @@ const handler = async (req: Request): Promise<Response> => {
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
 
     const emailPayload: Record<string, unknown> = {
-      from: "Liventix <hello@liventix.tech>",
+      from: "YardPass <hello@yardpass.tech>",
       to: [data.customerEmail],
       subject: data.isRsvpOnly 
         ? `✅ RSVP Confirmed - ${eventInfo?.title || data.eventTitle}`
-        : `✅ Ticket Confirmation - ${eventInfo?.title || data.eventTitle}`,
+        : `✅ Your YardPass tickets are ready for ${eventInfo?.title || data.eventTitle}`,
       html,
       text,
-      reply_to: orgInfo?.supportEmail || "support@liventix.tech",
+      reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
       headers: {
         "X-Entity-Ref-ID": idemKey, // many ESPs use this for idempotency
-        "List-Unsubscribe": `<mailto:${orgInfo?.supportEmail || "support@liventix.tech"}>`,
+        "List-Unsubscribe": `<mailto:${orgInfo?.supportEmail || "support@yardpass.tech"}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
       tags: [
@@ -1105,12 +1281,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (ticketAttachment) {
       (emailPayload as any).attachments = [ticketAttachment];
-      console.log(`[${requestId}] Adding attachment: ${ticketAttachment.filename}, type: ${ticketAttachment.contentType}`);
+      logStep("Adding attachment to email", { 
+        requestId, 
+        filename: ticketAttachment.filename, 
+        contentType: ticketAttachment.contentType,
+        sizeBytes: ticketAttachment.content.length
+      });
     } else {
-      console.warn(`[${requestId}] No ticket attachment generated!`);
+      logStep("No ticket attachment (will send email without attachment)", { requestId });
     }
 
-    console.log(`[${requestId}] Sending email to ${data.customerEmail} with ${ticketAttachment ? 'attachment' : 'no attachment'}`);
+    logStep("Sending email via Resend", { 
+      requestId, 
+      to: data.customerEmail, 
+      subject: emailPayload.subject,
+      hasAttachment: !!ticketAttachment,
+      isRsvpOnly: data.isRsvpOnly
+    });
 
     const res = await fetchWithRetry("https://api.resend.com/emails", {
       method: "POST",
@@ -1120,19 +1307,24 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!res.ok) {
       const body = await res.text();
-      console.error("Resend error", { requestId, status: res.status, body });
+      logStep("Resend API error", { requestId, status: res.status, body });
       return new Response(JSON.stringify({ error: "Email provider error", status: res.status }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const payload = await res.json();
-    console.log("✅ Purchase confirmation sent", { requestId, payload });
+    logStep("Purchase confirmation email sent successfully", { 
+      requestId, 
+      emailId: payload.id,
+      to: data.customerEmail,
+      orderId: data.orderId
+    });
 
     return new Response(JSON.stringify({ success: true, requestId, ...payload }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Unhandled error in send-purchase-confirmation", { requestId, error });
+    logStep("ERROR in send-purchase-confirmation", { requestId, error: error instanceof Error ? error.message : String(error) });
     return new Response(JSON.stringify({ error: "Internal error", requestId }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1141,3 +1333,4 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
+

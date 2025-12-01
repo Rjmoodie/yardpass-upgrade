@@ -69,8 +69,8 @@ export function endTracking(
       ...metadata
     });
     
-    // Log in development
-    if (import.meta.env.DEV) {
+    // Only log slow operations in development (> 100ms)
+    if (import.meta.env.DEV && duration > 100) {
       console.log(`[Performance] ${operationName}: ${duration}ms`, metadata);
     }
     

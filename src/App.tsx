@@ -19,7 +19,7 @@ import { Scan } from 'lucide-react';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 import { FullScreenLoading } from '@/components/layout/FullScreenLoading';
 import { FullScreenSafeArea } from '@/components/layout/FullScreenSafeArea';
-import ErrorBoundary from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { Event } from '@/types/events';
 import { PerfPreconnect } from '@/components/Perf/PerfPreconnect';
 import { WarmHlsOnIdle } from '@/components/Perf/WarmHlsOnIdle';
@@ -28,261 +28,35 @@ import { useAccessibility } from '@/hooks/useAccessibility';
 import { usePlatform } from '@/hooks/usePlatform';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
-function ScrollRestorationManager() {
+// Scroll restoration helper - single source of truth
+function ScrollToTopOnRouteChange() {
   const location = useLocation();
-  const savedScrollRef = useRef<number>(0);
-  const isLockedRef = useRef(false);
 
-  // NUCLEAR OPTION: Lock scrolling entirely during route transitions
   useLayoutEffect(() => {
-    isLockedRef.current = true;
-    
-    // Save current scroll position BEFORE route change
-    const mainEl = document.getElementById('main-content');
-    savedScrollRef.current = mainEl?.scrollTop || window.scrollY || 0;
-    
-    // Disable browser scroll restoration
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-
-    // STEP 1: Immediately lock all scrolling via CSS
-    const lockScroll = () => {
-      const main = document.getElementById('main-content');
-      const html = document.documentElement;
-      const body = document.body;
-      
-      // Add CSS class to lock scrolling
-      html.classList.add('scroll-locked');
-      if (main) {
-        main.classList.add('scroll-resetting');
-        // Save current scroll and force to 0
-        main.style.overflow = 'hidden';
-        main.style.position = 'relative';
-        main.style.top = `-${savedScrollRef.current}px`;
-        main.scrollTop = 0;
-      }
-      
-      // Lock window scroll
-      body.style.overflow = 'hidden';
-      body.style.position = 'fixed';
-      body.style.width = '100%';
-      body.style.top = `-${savedScrollRef.current}px`;
-    };
-
-    // Lock immediately (synchronous, before paint)
-    lockScroll();
-
-    const resetScroll = () => {
-      const main = document.getElementById('main-content');
-      
-      // Reset main scroll container
-      if (main) {
-        main.scrollTop = 0;
-        main.scrollLeft = 0;
-        main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      }
-      
-      // Reset window scroll
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      
-      // Reset document element scroll
-      document.documentElement.scrollTop = 0;
-      document.documentElement.scrollLeft = 0;
-      document.body.scrollTop = 0;
-      document.body.scrollLeft = 0;
-    };
-
-    // Immediate reset (synchronous, before paint)
-    resetScroll();
-
-    // Intercept scroll events and prevent them during reset period
-    const preventScroll = (e: UIEvent) => {
-      if (isLockedRef.current) {
-        e.preventDefault();
-        e.stopPropagation();
-        resetScroll();
-      }
-    };
-
-    // Multiple resets with different timings to catch delayed restoration
-    const timeouts: number[] = [];
-    const rafs: number[] = [];
-
-    // RequestAnimationFrame resets (catches after layout but before paint)
-    rafs.push(requestAnimationFrame(() => {
-      resetScroll();
-      rafs.push(requestAnimationFrame(() => {
-        resetScroll();
-        rafs.push(requestAnimationFrame(() => {
-          resetScroll();
-        }));
-      }));
-    }));
-
-    // Timeout resets at various intervals (more aggressive)
-    [0, 1, 5, 10, 25, 50, 100, 200, 300, 500].forEach(delay => {
-      timeouts.push(window.setTimeout(() => {
-        resetScroll();
-      }, delay));
-    });
-
-    // MutationObserver to catch any DOM changes that might trigger scroll
-    const observer = new MutationObserver((mutations) => {
-      // Only reset if scroll position changed
-      const main = document.getElementById('main-content');
-      if (main && (main.scrollTop > 0 || window.scrollY > 0)) {
-        resetScroll();
-      }
-    });
-
-    // Observe the main content area and body for any changes
     const main = document.getElementById('main-content');
-    if (main) {
-      observer.observe(main, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class'],
-      });
-    }
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    });
 
-    // Watch for scroll events and reset if scroll position changes
-    const handleScroll = () => {
-      if (!isLockedRef.current) return;
+    if (main instanceof HTMLElement) {
+      // ✅ CRITICAL: Reset scroll synchronously before paint to prevent layout offset
+      // This must happen immediately, not in requestAnimationFrame, to prevent visible scroll
+      main.scrollTop = 0;
+      main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       
-      const main = document.getElementById('main-content');
-      const hasScrolled = 
-        (main && main.scrollTop > 0) || 
-        window.scrollY > 0 || 
-        document.documentElement.scrollTop > 0;
-      
-      if (hasScrolled) {
-        resetScroll();
+      // Only log scroll issues in development (not success)
+      if (import.meta.env.DEV) {
+        requestAnimationFrame(() => {
+          if (main.scrollTop > 0) {
+            console.warn('[ScrollReset] Failed to reset scroll:', location.pathname);
+          }
+        });
       }
-    };
-
-    // Listen for scroll events with capture phase (catches all scroll events)
-    // Use passive: false so we can prevent default if needed
-    const handleScrollListener = handleScroll as EventListener;
-    const preventScrollListener = preventScroll as EventListener;
-    
-    window.addEventListener('scroll', handleScrollListener, { capture: true, passive: false });
-    window.addEventListener('scroll', preventScrollListener, { capture: true, passive: false });
-    if (main) {
-      main.addEventListener('scroll', handleScrollListener, { capture: true, passive: false });
-      main.addEventListener('scroll', preventScrollListener, { capture: true, passive: false });
     }
 
-    // Unlock scrolling after content has loaded (allow some time for layout)
-    const unlockScroll = () => {
-      const main = document.getElementById('main-content');
-      const html = document.documentElement;
-      const body = document.body;
-      
-      // Remove CSS locks
-      html.classList.remove('scroll-locked');
-      if (main) {
-        main.classList.remove('scroll-resetting');
-        main.style.overflow = '';
-        main.style.position = '';
-        main.style.top = '';
-        // Ensure scroll is still at 0
-        main.scrollTop = 0;
-      }
-      
-      // Unlock window scroll
-      body.style.overflow = '';
-      body.style.position = '';
-      body.style.width = '';
-      body.style.top = '';
-      
-      // Final reset to ensure we're at top
-      resetScroll();
-      isLockedRef.current = false;
-    };
+    // Fallback: also reset window scroll (synchronous)
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
-    // Unlock after a delay (allows content to load)
-    // Use longer delay to ensure all async content has loaded
-    const unlockTimer = setTimeout(() => {
-      unlockScroll();
-    }, 800); // Longer delay to let all content render
-    
-    // Also unlock when content is actually ready (check for images loaded)
-    const checkContentReady = setInterval(() => {
-      const main = document.getElementById('main-content');
-      if (main) {
-        // Check if main content has rendered (has children)
-        const hasContent = main.children.length > 0;
-        // Check if images are loaded (rough heuristic)
-        const images = main.querySelectorAll('img');
-        const imagesLoaded = images.length === 0 || Array.from(images).every(img => (img as HTMLImageElement).complete);
-        
-        if (hasContent && imagesLoaded) {
-          clearInterval(checkContentReady);
-          unlockScroll();
-        }
-      }
-    }, 100);
-    
-    // Force unlock after 2 seconds max (safety net)
-    const forceUnlock = setTimeout(() => {
-      clearInterval(checkContentReady);
-      unlockScroll();
-    }, 2000);
-
-    return () => {
-      // Cleanup all timeouts
-      timeouts.forEach(clearTimeout);
-      clearTimeout(unlockTimer);
-      clearTimeout(forceUnlock);
-      clearInterval(checkContentReady);
-      rafs.forEach(cancelAnimationFrame);
-      observer.disconnect();
-      window.removeEventListener('scroll', handleScrollListener, { capture: true });
-      window.removeEventListener('scroll', preventScrollListener, { capture: true });
-      if (main) {
-        main.removeEventListener('scroll', handleScrollListener, { capture: true });
-        main.removeEventListener('scroll', preventScrollListener, { capture: true });
-      }
-      
-      // Cleanup scroll locks
-      unlockScroll();
-    };
-  }, [location.pathname, location.search]);
-
-  // Additional useEffect with delayed resets as backup
-  useEffect(() => {
-    const resetScroll = () => {
-      const main = document.getElementById('main-content');
-      if (main) {
-        main.scrollTop = 0;
-        main.scrollLeft = 0;
-        main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      }
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-    };
-
-    // Delayed resets as fallback (longer intervals)
-    const timeout1 = setTimeout(resetScroll, 100);
-    const timeout2 = setTimeout(resetScroll, 300);
-    const timeout3 = setTimeout(resetScroll, 500);
-    const timeout4 = setTimeout(resetScroll, 1000);
-
-    return () => {
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-      clearTimeout(timeout3);
-      clearTimeout(timeout4);
-    };
-  }, [location.pathname, location.search]);
+  // Scroll monitoring removed - was causing excessive console noise
+  // The scroll reset in the first useEffect is sufficient
 
   return null;
 }
@@ -351,7 +125,7 @@ const SocialPage = lazy(() => import('@/components/SocialPage').then((m) => ({ d
 // Auth guard
 import { AuthGuard } from '@/components/AuthGuard';
 
-type UserRole = 'attendee' | 'organizer';
+type UserRole = 'attendee' | 'organizer' | 'admin';
 
 // Redirect component for legacy event routes
 function RedirectToEventSlug() {
@@ -409,7 +183,7 @@ function OrganizationDashboardRouteComponent({
       user={{
         id: user.id,
         name: profile?.display_name || 'User',
-        role: (profile?.role as UserRole) || 'attendee',
+        role: ((profile?.role as UserRole) || 'attendee') as 'attendee' | 'organizer',
       }}
       organizationId={orgId}
       onBack={() => navigate('/profile')}
@@ -448,56 +222,6 @@ function AppContent() {
 
   useAccessibility();
   usePushNotifications(); // Setup push notifications for iOS
-
-  // Reset scroll on route change - fixes "flash then revert" issue
-  // MUST run BEFORE React Router's scroll restoration
-  useEffect(() => {
-    const resetScroll = () => {
-      // Reset main content scroll position
-      if (mainContentRef.current) {
-        mainContentRef.current.scrollTop = 0;
-        mainContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
-      }
-      
-      // Reset window scroll as fallback
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      
-      // Find and reset ALL scroll containers
-      const allScrollContainers = document.querySelectorAll(
-        '.scroll-container, [class*="overflow-y-auto"], .overflow-y-auto, main[role="main"]'
-      );
-      allScrollContainers.forEach(container => {
-        if (container instanceof HTMLElement) {
-          container.scrollTop = 0;
-          container.scrollTo({ top: 0, behavior: 'instant' });
-        }
-      });
-    };
-    
-    // Immediate reset
-    resetScroll();
-    
-    // Multiple reset attempts to override browser/router restoration
-    const raf1 = requestAnimationFrame(() => {
-      resetScroll();
-      const raf2 = requestAnimationFrame(() => {
-        resetScroll();
-      });
-      setTimeout(() => cancelAnimationFrame(raf2), 100);
-    });
-    
-    // Delayed resets to catch late restoration
-    const timeout1 = setTimeout(resetScroll, 0);
-    const timeout2 = setTimeout(resetScroll, 50);
-    const timeout3 = setTimeout(resetScroll, 100);
-    
-    return () => {
-      cancelAnimationFrame(raf1);
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-      clearTimeout(timeout3);
-    };
-  }, [location.pathname]);
 
   // Setup keyboard listeners on app load
   // Note: iOS Capacitor StatusBar is initialized in main.tsx before render to ensure safe areas work immediately
@@ -599,6 +323,39 @@ function AppContent() {
         ? 'organizer'
         : 'attendee';
 
+  // ✅ CRITICAL: Set data-role on root element to enable global purple theme
+  // This ensures the entire app changes color when switching to organizer mode
+  // Using useLayoutEffect to set synchronously before paint to prevent flash
+  useLayoutEffect(() => {
+    const root = document.documentElement; // <html> element
+    
+    // Determine role - prioritize profile role, fallback to localStorage, then route-based logic
+    let currentRole = profile?.role;
+    
+    // If profile hasn't loaded yet, try to get from localStorage (set from previous session)
+    if (!currentRole) {
+      const cachedRole = localStorage.getItem('user_role');
+      if (cachedRole === 'organizer' || cachedRole === 'attendee') {
+        currentRole = cachedRole;
+      }
+    }
+    
+    // Fallback to route-based logic
+    if (!currentRole) {
+      currentRole = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/organization-dashboard') 
+        ? 'organizer' 
+        : 'attendee';
+    }
+    
+    // Set data-role attribute on root element for global CSS variable override
+    root.setAttribute('data-role', currentRole);
+    
+    // Cache role in localStorage for next page load (prevents flash)
+    if (currentRole) {
+      localStorage.setItem('user_role', currentRole);
+    }
+  }, [profile?.role, location.pathname]);
+
   const handleEventSelect = (eventId: string) => {
     navigate(`/e/${eventId}`);
   };
@@ -663,21 +420,24 @@ function AppContent() {
 
   return (
     <>
-      <ScrollRestorationManager />
       <GlobalErrorHandler />
       <PerfPreconnect />
       <WarmHlsOnIdle />
       <DeferredImports />
       <AnalyticsWrapper>
         <FullScreenSafeArea scroll={false} className="app-frame flex flex-col bg-background relative no-page-bounce" data-role={routeRole}>
+          {/* One place to manage scroll */}
+          <ScrollToTopOnRouteChange />
+
           <div className="app-mesh pointer-events-none" aria-hidden="true" />
 
           {/* Main Content Area */}
-          {/* Note: main element is the scroll container (has overflow-y-auto) */}
+          {/* main is THE scroll container; it remounts per route */}
           <main
             id="main-content"
+            key={location.pathname}
             ref={mainContentRef}
-            className="content-on-nav scroll-container flex-1 overflow-y-auto pb-nav"
+            className="content-on-nav scroll-container flex-1 overflow-y-auto"
             role="main"
             aria-label="Main content"
             style={{
@@ -725,7 +485,9 @@ function AppContent() {
               <Route path="/e/:identifier/tickets" element={<TicketsRoute />} />
               <Route path="/e/:identifier/attendees" element={<EventAttendeesPage />} />
               {/* (duplicate tickets route removed above) */}
+              <Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy onBack={() => navigate('/')} />} />
+              <Route path="/terms" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
               <Route path="/deployment-readiness" element={<DeploymentReadinessPage onBack={() => navigate('/')} />} />
@@ -768,7 +530,7 @@ function AppContent() {
                           user={{
                             id: user.id,
                             name: profile?.display_name || 'User',
-                            role: (profile?.role as UserRole) || 'attendee',
+                            role: ((profile?.role as UserRole) || 'attendee') as 'attendee' | 'organizer',
                           }}
                           onBack={() => navigate('/')}
                           onPost={() => navigate('/')}
@@ -935,14 +697,6 @@ function AppContent() {
                 element={
                   <AuthGuard>
                     <TicketSuccessPage onBack={() => navigate('/')} onViewTickets={() => navigate('/tickets')} />
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/purchase-success"
-                element={
-                  <AuthGuard>
-                    <PurchaseSuccessHandler />
                   </AuthGuard>
                 }
               />

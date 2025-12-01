@@ -68,6 +68,12 @@ export type FeedItem =
       author_photo: string | null;
       author_badge: string | null;
       author_social_links: any[] | null;
+      author_is_organizer?: boolean;
+      // Post as organization fields
+      post_as_context_type?: string | null;
+      post_as_context_id?: string | null;
+      post_as_org_name?: string | null;
+      post_as_org_logo?: string | null;
       media_urls: string[] | null;
       content: string | null;
       created_at: string | null;

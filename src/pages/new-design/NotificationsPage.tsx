@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MessageCircle, UserPlus, Calendar, Ticket, Settings, Filter, Check, Trash2 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
@@ -55,10 +55,22 @@ const notificationColors = {
   message: 'text-blue-500',
 };
 
+type FilterType = 'all' | 'unread' | 'likes' | 'comments' | 'follows' | 'messages' | 'tickets';
+
+const filterConfig: { key: FilterType; label: string; types: Notification['type'][] }[] = [
+  { key: 'all', label: 'All', types: [] },
+  { key: 'unread', label: 'Unread', types: [] },
+  { key: 'likes', label: 'Likes', types: ['like'] },
+  { key: 'comments', label: 'Comments', types: ['comment'] },
+  { key: 'follows', label: 'Follows', types: ['follow'] },
+  { key: 'messages', label: 'Messages', types: ['message'] },
+  { key: 'tickets', label: 'Tickets', types: ['ticket'] },
+];
+
 export function NotificationsPageIntegrated() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<FilterType>('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -245,11 +257,36 @@ export function NotificationsPageIntegrated() {
     }
   }, [user?.id]);
 
-  const filteredNotifications = notifications.filter(notif => 
-    filter === 'all' || !notif.isRead
-  );
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter(notif => {
+      // Unread filter
+      if (filter === 'unread') return !notif.isRead;
+      // All filter
+      if (filter === 'all') return true;
+      // Type-based filters
+      const config = filterConfig.find(f => f.key === filter);
+      if (config && config.types.length > 0) {
+        return config.types.includes(notif.type);
+      }
+      return true;
+    });
+  }, [notifications, filter]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  // Counts for each filter tab
+  const filterCounts = useMemo(() => {
+    const counts: Record<FilterType, number> = {
+      all: notifications.length,
+      unread: unreadCount,
+      likes: notifications.filter(n => n.type === 'like').length,
+      comments: notifications.filter(n => n.type === 'comment').length,
+      follows: notifications.filter(n => n.type === 'follow').length,
+      messages: notifications.filter(n => n.type === 'message').length,
+      tickets: notifications.filter(n => n.type === 'ticket').length,
+    };
+    return counts;
+  }, [notifications, unreadCount]);
 
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read
@@ -309,28 +346,29 @@ export function NotificationsPageIntegrated() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 px-4 pb-3">
-          <button
-            onClick={() => setFilter('all')}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-              filter === 'all'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-background/80 text-foreground/80 hover:bg-foreground/5'
-            }`}
-          >
-            All ({notifications.length})
-          </button>
-          <button
-            onClick={() => setFilter('unread')}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-              filter === 'unread'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-background/80 text-foreground/80 hover:bg-foreground/5'
-            }`}
-          >
-            Unread ({unreadCount})
-          </button>
+        {/* Filter Tabs - Scrollable */}
+        <div className="overflow-x-auto scrollbar-hide pb-3">
+          <div className="flex gap-2 px-4 min-w-max">
+            {filterConfig.map(({ key, label }) => {
+              const count = filterCounts[key];
+              // Hide tabs with 0 items (except All and Unread)
+              if (count === 0 && key !== 'all' && key !== 'unread') return null;
+              
+              return (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                    filter === key
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-background/80 text-foreground/80 hover:bg-foreground/5'
+                  }`}
+                >
+                  {label} {count > 0 ? `(${count})` : ''}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -339,15 +377,29 @@ export function NotificationsPageIntegrated() {
         {filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
-              <UserPlus className="h-8 w-8 text-muted-foreground" />
+              {filter === 'likes' ? <Heart className="h-8 w-8 text-muted-foreground" /> :
+               filter === 'comments' ? <MessageCircle className="h-8 w-8 text-muted-foreground" /> :
+               filter === 'follows' ? <UserPlus className="h-8 w-8 text-muted-foreground" /> :
+               filter === 'tickets' ? <Ticket className="h-8 w-8 text-muted-foreground" /> :
+               <UserPlus className="h-8 w-8 text-muted-foreground" />}
             </div>
             <h3 className="text-lg font-semibold mb-2">
-              {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+              {filter === 'unread' ? 'No unread notifications' : 
+               filter === 'likes' ? 'No likes yet' :
+               filter === 'comments' ? 'No comments yet' :
+               filter === 'follows' ? 'No follows yet' :
+               filter === 'messages' ? 'No messages yet' :
+               filter === 'tickets' ? 'No ticket notifications' :
+               'No notifications yet'}
             </h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              {filter === 'unread' 
-                ? 'You\'re all caught up!' 
-                : 'When people interact with you, you\'ll see it here'}
+              {filter === 'unread' ? "You're all caught up!" : 
+               filter === 'likes' ? 'When someone likes your posts, it will show here' :
+               filter === 'comments' ? 'Comments and replies will appear here' :
+               filter === 'follows' ? 'New followers will appear here' :
+               filter === 'messages' ? 'New messages will appear here' :
+               filter === 'tickets' ? 'Ticket purchase notifications will appear here' :
+               'When people interact with you, you\'ll see it here'}
             </p>
           </div>
         ) : (

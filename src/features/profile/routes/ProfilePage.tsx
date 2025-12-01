@@ -24,7 +24,7 @@ import { Dialog, DialogContent, BottomSheetContent } from '@/components/ui/dialo
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CommentModal } from '@/features/comments';
-import { FullscreenPostViewer } from '@/components/post-viewer/FullscreenPostViewer';
+import { ProfileFullscreenPostContainer, type ViewerPost } from '@/components/post-viewer';
 import { useAuth } from '@/contexts/AuthContext';
 import { isVideoUrl, muxToPoster } from '@/utils/mux';
 import { useProfileView } from '@/contexts/ProfileViewContext';
@@ -446,6 +446,24 @@ export default function UserProfilePage() {
   }, [selectedPost]);
 
   const feedItems = useMemo(() => posts.map((post) => toFeedItem(post, profile)), [posts, profile]);
+
+  // Memoized viewer posts to avoid recreation on every render
+  const viewerPosts = useMemo((): ViewerPost[] => posts.map((p) => ({
+    id: p.id,
+    text: p.text ?? '',
+    author_user_id: profile?.user_id ?? '',
+    created_at: p.created_at ?? new Date().toISOString(),
+    media_urls: p.media_urls ?? [],
+    author_name: profile?.display_name ?? 'Anonymous',
+    author_avatar: profile?.photo_url ?? null,
+    author_badge: null,
+    author_is_organizer: false,
+    comments: [],
+    likes_count: p.like_count ?? 0,
+    is_liked: false,
+    comment_count: p.comment_count ?? 0,
+    event_id: p.events?.id ?? '',
+  })), [posts, profile?.user_id, profile?.display_name, profile?.photo_url]);
 
   const statsByRole = useMemo(
     () => ({
@@ -1169,33 +1187,28 @@ export default function UserProfilePage() {
       </Dialog>
 
       {/* Comment Modal - New Instagram-style Fullscreen Post Viewer */}
-      {commentContext && (
-        <FullscreenPostViewer
-          key={`viewer-${commentContext.postId}-${commentContext.eventId}`}
+      {showCommentModal && viewerPosts.length > 0 && (
+        <ProfileFullscreenPostContainer
           isOpen={showCommentModal}
           onClose={() => {
             setShowCommentModal(false);
             setCommentContext(null);
           }}
-          eventId={commentContext.eventId}
-          eventTitle={commentContext.eventTitle}
-          postId={commentContext.postId}
-          postIdSequence={posts.map(p => p.id)}
-          initialIndex={posts.findIndex(p => p.id === commentContext.postId)}
-          onCommentCountChange={(postId, newCount) => {
-            // Update local state to reflect new comment count
-            setPosts((prevPosts) =>
-              prevPosts.map((post) =>
-                post.id === postId
-                  ? { ...post, comment_count: newCount }
-                  : post
-              )
-            );
-          }}
+          posts={viewerPosts}
+          initialIndex={commentContext ? posts.findIndex(p => p.id === commentContext.postId) : 0}
           onPostDelete={(postId) => {
             setPosts((prevPosts) => prevPosts.filter(p => p.id !== postId));
             setShowCommentModal(false);
             setCommentContext(null);
+          }}
+          onPostUpdate={(postId, updates) => {
+            setPosts((prevPosts) =>
+              prevPosts.map((post) =>
+                post.id === postId
+                  ? { ...post, ...updates }
+                  : post
+              )
+            );
           }}
         />
       )}

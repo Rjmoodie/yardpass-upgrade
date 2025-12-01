@@ -31,7 +31,6 @@ import { useKeyboardPadding } from '@/hooks/useKeyboard';
 import { ProfileCompletionModal } from '@/components/auth/ProfileCompletionModal';
 import { usePostCreation } from '@/features/posts/hooks/usePostCreation';
 import { logger } from '@/utils/logger';
-import type { QueuedFile } from '@/features/posts/hooks/usePostCreation';
 
 // Optional: if you have analytics
 // import { useAnalytics } from '@/hooks/useAnalytics';
@@ -998,21 +997,30 @@ export function PostCreatorModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[92dvh]" aria-busy={isSubmitting}>
-          <div className="flex h-[92dvh] flex-col rounded-3xl border-2 border-border bg-background shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5)] ring-1 ring-black/10 dark:ring-white/10 dark:border-white/20">
-            <div className="relative overflow-hidden">
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/20 via-background/60 to-background" />
-              <DialogHeader className="relative px-6 pt-6 pb-5">
-                <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  New Post
-                </DialogTitle>
-                <DialogDescription className="sr-only">
-                  Create a new event post by adding media and a caption.
-                </DialogDescription>
-                <p className="text-sm text-foreground/80">
-                  Share photos, videos, or updates related to your event
-                </p>
+        <DialogContent 
+          className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[92dvh] [&>button]:!hidden" 
+          aria-busy={isSubmitting}
+        >
+          <div 
+            className="flex h-[92dvh] flex-col rounded-2xl border border-border/40 bg-background shadow-[0_20px_48px_rgba(0,0,0,0.15)] backdrop-blur-xl"
+          >
+            {/* Header */}
+            <div className="border-b border-border/30">
+              <DialogHeader className="px-6 pt-4 pb-3.5 sm:px-8 sm:pt-5 sm:pb-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground/80">
+                    Composer
+                  </span>
+                  <DialogTitle
+                    className="flex items-center gap-1.5 text-xs sm:text-sm font-medium tracking-tight text-foreground"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-primary/60" />
+                    <span>Create post</span>
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Create a new event post by adding media and a caption.
+                  </DialogDescription>
+                </div>
               </DialogHeader>
             </div>
 
@@ -1021,31 +1029,34 @@ export function PostCreatorModal({
               style={keyboardPadding}
               onPaste={onPaste}
             >
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* User Profile + Event Context */}
-                <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-muted/30 p-4">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <Avatar className="h-11 w-11 ring-2 ring-primary/30 shrink-0">
-                      <AvatarImage src={profile?.photo_url || ''} />
-                      <AvatarFallback>{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold truncate">{profile?.display_name || 'You'}</div>
-                      <div className="flex flex-wrap items-center gap-1 text-xs text-foreground/75">
-                        {selectedTicket?.events?.title && (
-                          <>
-                            <span className="font-medium truncate max-w-[180px]">
-                              {selectedTicket.events.title}
-                            </span>
-                            <span>•</span>
-                          </>
-                        )}
-                        <span>{isFlashback ? 'Flashback post' : 'Event post'}</span>
-                      </div>
+                <div className="flex items-center gap-3 px-1 py-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile?.photo_url || ''} />
+                    <AvatarFallback className="text-xs font-medium bg-muted">{profile?.display_name?.charAt(0) || 'U'}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate text-foreground">
+                      {profile?.display_name || 'You'}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                      {selectedTicket?.events?.title && (
+                        <>
+                          <span className="truncate max-w-[180px] text-foreground/70">
+                            {selectedTicket.events.title}
+                          </span>
+                          <span className="text-muted-foreground/30">•</span>
+                        </>
+                      )}
+                      <span>{isFlashback ? 'Flashback post' : 'Event post'}</span>
                     </div>
                   </div>
                   {selectedTicket && (
-                    <Badge variant="neutral" className="rounded-full text-xs px-3 py-1 shrink-0" title={selectedTicket.ticket_tiers.name}>
+                    <Badge
+                      variant="neutral"
+                      className="shrink-0 rounded-full text-[10px] px-2 py-0.5 font-medium bg-primary/10 text-primary border-primary/20"
+                    >
                       {selectedTicket.ticket_tiers.badge_label}
                     </Badge>
                   )}
@@ -1053,13 +1064,19 @@ export function PostCreatorModal({
 
                 {/* Event Selection */}
                 {!preselectedEventId && (
-                  <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-foreground/75">
+                  <div className="px-2">
+                    <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-2 block">
                       Event
                     </label>
                     <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                      <SelectTrigger className="mt-2 rounded-xl border-border/70 bg-background/80">
-                        <SelectValue placeholder={selectedEventId ? "Select an event" : "Select an event to start posting…"} />
+                      <SelectTrigger className="rounded-xl border-border/60 bg-background h-10 text-sm">
+                        <SelectValue
+                          placeholder={
+                            selectedEventId
+                              ? 'Select an event'
+                              : 'Select an event to start posting…'
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent className="max-h-64">
                         {userTickets.map((ticket) => (
@@ -1079,11 +1096,11 @@ export function PostCreatorModal({
 
                 {/* Flashback Notice */}
                 {isFlashback && (
-                  <Alert className="rounded-2xl border-purple-500/30 bg-purple-500/5 px-4 py-3">
-                    <History className="h-4 w-4 text-purple-400" />
-                    <AlertDescription className="text-xs text-foreground/80 space-y-1">
+                  <Alert className="mx-2 rounded-xl border-purple-500/20 bg-purple-500/5 px-3 py-2.5">
+                    <History className="h-3.5 w-3.5 text-purple-400/80" />
+                    <AlertDescription className="text-[11px] text-foreground/70 space-y-1">
                       <span>
-                        <span className="font-semibold text-purple-300">Flashback Post:</span>{' '}
+                        <span className="font-semibold text-purple-300/90">Flashback Post:</span>{' '}
                         At least one photo or video required. Caption limited to 300 characters.
                       </span>
                       {orgCreatedAt && (() => {
@@ -1092,11 +1109,11 @@ export function PostCreatorModal({
                         const daysLeft = Math.max(0, Math.ceil((windowEnd.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)));
                         
                         return daysLeft === 0 ? (
-                          <span className="block text-[11px] text-amber-400 font-medium">
+                          <span className="block text-[10px] text-amber-400/90 font-medium">
                               ⚠️ Posting window has closed ({windowEnd.toLocaleDateString()})
                             </span>
                         ) : (
-                          <span className="block text-[11px] text-green-400 font-medium">
+                          <span className="block text-[10px] text-green-400/90 font-medium">
                               ✓ {daysLeft} days left to post (until {windowEnd.toLocaleDateString()})
                             </span>
                           );
@@ -1106,15 +1123,13 @@ export function PostCreatorModal({
                 )}
 
                 {/* Composer + Media in responsive layout */}
-                {/* On mobile: Stack vertically, preview on top. On desktop: Side-by-side */}
-                <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
-                  {/* Mobile: Preview FIRST, then composer. Desktop: Composer LEFT */}
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
                   {/* LEFT: Composer + actions */}
                   <div className="space-y-4 min-h-0 order-last lg:order-first">
                     {/* Composer */}
                     <div
-                      className={`rounded-3xl border bg-background/80 p-5 shadow-inner transition-all ${
-                        isDragging ? 'border-primary bg-primary/5' : 'border-border/40'
+                      className={`rounded-xl border border-border/40 bg-background p-4 sm:p-5 transition-all ${
+                        isDragging ? 'border-primary/40 bg-primary/5' : ''
                       }`}
                       onDrop={onDrop}
                       onDragOver={onDragOver}
@@ -1169,15 +1184,23 @@ export function PostCreatorModal({
                         </div>
                       )}
 
+                      {/* Textarea */}
                       <Textarea
                         placeholder={
                           isFlashback
                             ? 'Share your favorite moment from this event... 📸'
-                            : "What's the vibe? Share the story, shout out a set, or drop some highlights…"
+                            : "Share updates and highlight moments"
                         }
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
-                        className="min-h-[120px] max-h-[200px] sm:min-h-[160px] sm:max-h-[260px] resize-none border-none bg-transparent p-0 text-base leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/60"
+                        className="
+                          min-h-[120px] max-h-[200px]
+                          sm:min-h-[160px] sm:max-h-[260px]
+                          resize-none border-none bg-transparent p-0
+                          text-base leading-relaxed
+                          focus-visible:ring-0
+                          placeholder:text-muted-foreground/60
+                        "
                         maxLength={isFlashback ? 300 : 2000}
                         enterKeyHint="done"
                         style={{ fontSize: '16px' }}
@@ -1186,14 +1209,14 @@ export function PostCreatorModal({
                       />
 
                       {/* Composer footer */}
-                      <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
                           {/* Add Files Button */}
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className={`flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors ${
+                            className={`flex items-center gap-1.5 h-8 px-3 rounded-full hover:bg-primary/10 transition-colors text-xs ${
                               isFlashback && queue.length === 0 ? 'text-purple-300' : ''
                             }`}
                             title={isFlashback ? 'Media required for flashback' : 'Add photos or videos'}
@@ -1201,8 +1224,8 @@ export function PostCreatorModal({
                               document.getElementById(imageInputId)?.click();
                             }}
                           >
-                            <Upload className="h-4 w-4" />
-                            <span className="text-xs font-medium hidden sm:inline">Media</span>
+                            <Upload className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Media</span>
                             {isFlashback && queue.length === 0 && <span className="flex h-2 w-2 rounded-full bg-purple-400" />}
                           </Button>
                           <input
@@ -1214,13 +1237,13 @@ export function PostCreatorModal({
                             className="hidden"
                           />
 
-                          {/* Camera Button (iOS Native) */}
+                          {/* Camera (native only) */}
                           {Capacitor.isNativePlatform() && (
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
+                              className="flex items-center gap-2 h-8 px-3 rounded-full hover:bg-primary/10 transition-colors text-xs disabled:opacity-40"
                               onClick={async () => {
                                 try {
                                   const file = await capturePhotoAsFile();
@@ -1230,7 +1253,9 @@ export function PostCreatorModal({
                                   console.error('Camera capture failed:', err);
                                   toast({
                                     title: 'Camera Error',
-                                    description: err?.message || 'Unable to capture photo.',
+                                    description:
+                                      err?.message ||
+                                      'Unable to capture photo.',
                                     variant: 'destructive',
                                   });
                                 }
@@ -1238,99 +1263,123 @@ export function PostCreatorModal({
                               title="Take photo or choose from library"
                             >
                               <CameraIcon className="h-4 w-4" />
-                              <span className="text-xs font-medium hidden sm:inline">Camera</span>
+                              <span className="hidden sm:inline">Camera</span>
                             </Button>
                           )}
 
-                          {/* Record Video Button */}
+                          {/* Record */}
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="flex items-center gap-2 h-9 px-3 rounded-full hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                            className="flex items-center gap-2 h-8 px-3 rounded-full hover:bg-red-500/10 transition-colors text-xs disabled:opacity-40"
                             onClick={() => {
                               if (!selectedEventId) {
                                 toast({
                                   title: 'Select an event first',
-                                  description: 'Please choose an event before recording a video.',
+                                  description:
+                                    'Please choose an event before recording a video.',
                                   variant: 'destructive',
                                 });
                                 return;
                               }
                               setShowVideoRecorder(true);
                             }}
-                            title={!selectedEventId ? 'Select an event first' : 'Record video'}
+                            title={
+                              !selectedEventId
+                                ? 'Select an event first'
+                                : 'Record video'
+                            }
                             disabled={!selectedEventId}
                           >
                             <VideoIcon className="h-4 w-4" />
-                            <span className="text-xs font-medium hidden sm:inline">Record</span>
+                            <span className="hidden sm:inline">Record</span>
                           </Button>
                         </div>
 
-                        {/* Character Counter & Upload Status */}
+                        {/* Counters */}
                         <div className="flex items-center gap-3 justify-between sm:justify-end">
-                          <div
-                            className={`text-xs ${
-                              isFlashback && content.trim().length > 300
-                                ? 'text-destructive font-semibold'
-                                : isFlashback && content.trim().length > 250
-                                ? 'text-amber-500'
-                                : 'text-muted-foreground'
-                            }`}
+                          <span
+                            className={`
+                              text-[11px] font-medium
+                              ${
+                                isFlashback && content.trim().length > 300
+                                  ? 'text-destructive'
+                                  : isFlashback &&
+                                    content.trim().length > 250
+                                  ? 'text-amber-500'
+                                  : 'text-muted-foreground'
+                              }
+                            `}
                           >
-                            {isFlashback ? `${content.trim().length} / 300` : `${content.length} / 2000`}
-                          </div>
+                            {isFlashback
+                              ? `${content.trim().length} / 300`
+                              : `${content.length} / 2000`}
+                          </span>
+
                           {queue.length > 0 && (
-                            <div className="text-xs font-medium text-primary">
+                            <span className="text-[11px] font-medium text-primary">
                               {queue.filter((q) => q.status === 'done').length > 0
                                 ? `${queue.filter((q) => q.status === 'done').length}/${queue.length} uploaded`
-                                : `${queue.length} ${queue.length === 1 ? 'file' : 'files'} attached`}
-                            </div>
+                                : `${queue.length} ${
+                                    queue.length === 1 ? 'file' : 'files'
+                                  } attached`}
+                            </span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Action Buttons (stick close to composer) */}
-                    <div className="rounded-3xl border border-border/60 bg-background/80 p-3 sm:p-4 shadow-inner sticky bottom-0 sm:static">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    {/* Action bar */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end pt-3">
                         <Button
                           variant="ghost"
                           onClick={onClose}
-                          className="rounded-full sm:w-auto text-muted-foreground hover:text-foreground"
+                          className="rounded-full h-9 sm:h-10 sm:w-auto text-xs sm:text-sm text-muted-foreground hover:text-foreground"
                         >
                           Cancel
                         </Button>
                         <Button
                           onClick={handleSubmit}
                           disabled={!canPost}
-                          className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl sm:min-w-[160px]"
+                          className="rounded-full h-9 sm:h-10 bg-primary text-primary-foreground text-xs sm:text-sm font-medium shadow-sm hover:shadow-md px-4 sm:px-6 sm:min-w-[140px] transition-all"
                           aria-busy={isSubmitting}
                         >
                           {isSubmitting ? (
                             <div className="flex items-center gap-2">
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                              Posting…
+                              <div className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                              <span className="text-xs sm:text-sm">Posting…</span>
                             </div>
                           ) : (
-                            'Post update'
+                            <span className="text-xs sm:text-sm">Post update</span>
                           )}
                         </Button>
                       </div>
-                    </div>
                   </div>
 
-                  {/* RIGHT/DESKTOP: Preview panel - shown FIRST on mobile for better visibility */}
+                  {/* RIGHT: media preview gallery */}
                   {queue.length > 0 && (
                     <div className="space-y-4 order-first lg:order-last">
                       <div
-                        className="space-y-3 rounded-3xl border border-border/60 bg-background/80 p-3 sm:p-4 shadow-inner max-h-[320px] sm:max-h-[360px] lg:max-h-[400px] lg:sticky lg:top-4 overflow-y-auto"
+                        className="
+                          space-y-3 rounded-xl border border-border/40 bg-background
+                          p-3 sm:p-4
+                          max-h-[340px] sm:max-h-[380px] lg:max-h-[420px]
+                          lg:sticky lg:top-4
+                          overflow-y-auto
+                        "
                         aria-label="Preview uploaded media"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-semibold">Preview</div>
-                          <Button size="sm" variant="ghost" onClick={clearAll} className="rounded-full text-xs">
-                            <X className="mr-1 h-4 w-4" /> Clear all
+                          <div className="text-sm font-semibold">Attached media</div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={clearAll}
+                            className="rounded-full text-[11px] h-8 px-3"
+                          >
+                            <X className="mr-1 h-3 w-3" />
+                            Clear
                           </Button>
                         </div>
 
@@ -1340,6 +1389,7 @@ export function PostCreatorModal({
                               key={q.name + q.size}
                               className="flex flex-col rounded-2xl border border-border/60 bg-background/90 p-3 shadow-sm"
                             >
+                              {/* Media thumbnail */}
                               <div className="relative aspect-video w-full overflow-hidden rounded-xl border-2 border-border/70 bg-black cursor-pointer group">
                                 {q.kind === 'image' && q.previewUrl ? (
                                   <img src={q.previewUrl} className="h-full w-full object-cover" alt={q.name} />

@@ -258,7 +258,6 @@ export function useTickets() {
 
   // Public API
   const refreshTickets = useCallback(async () => {
-    console.log('🔄 Refreshing tickets...');
     await fetchUserTickets();
   }, [fetchUserTickets]);
 
@@ -266,7 +265,6 @@ export function useTickets() {
   const forceRefreshTickets = useCallback(async () => {
     if (!user) return;
     
-    if (import.meta.env.DEV) console.log('🔄 Force refreshing tickets...');
     setPartial({ loading: true, error: null });
     
     try {
@@ -279,7 +277,6 @@ export function useTickets() {
         },
       });
       
-      console.log('🔄 Force refresh - get-user-tickets response:', { data, error });
       if (error) throw error;
 
       // Parse data if it's a string (edge function returning JSON string)
@@ -287,38 +284,24 @@ export function useTickets() {
       if (typeof data === 'string') {
         try {
           parsedData = JSON.parse(data);
-          console.log('🔄 Force refresh - Parsed string data:', parsedData);
         } catch (parseError) {
-          console.error('🔄 Force refresh - Failed to parse tickets data:', parseError);
           parsedData = { tickets: [] };
         }
       }
 
-      console.log('🔄 Force refresh - Final parsedData type:', typeof parsedData);
-      console.log('🔄 Force refresh - Final parsedData:', parsedData);
-      console.log('🔄 Force refresh - parsedData.tickets exists:', !!parsedData?.tickets);
-      console.log('🔄 Force refresh - parsedData.tickets is array:', Array.isArray(parsedData?.tickets));
-
       // Ensure we have an array of tickets
       let tickets = [];
       if (Array.isArray(parsedData)) {
-        console.log('🔄 Force refresh - Using parsedData directly as array');
         tickets = parsedData;
       } else if (parsedData && Array.isArray(parsedData.tickets)) {
-        console.log('🔄 Force refresh - Using parsedData.tickets array');
         tickets = parsedData.tickets;
       } else if (parsedData && parsedData.tickets === null) {
-        console.log('🔄 Force refresh - parsedData.tickets is null');
         tickets = [];
       } else {
-        console.warn('🔄 Force refresh - Unexpected tickets data structure:', parsedData);
         tickets = [];
       }
       
-      console.log('🔄 Force refresh - Extracted tickets:', tickets);
       const transformed = transform(tickets);
-      console.log('🎫 Force refresh - Raw tickets from API:', tickets);
-      console.log('🎫 Force refresh - Transformed tickets:', transformed);
       const nowMs = Date.now();
       transformed.sort((a, b) => {
         const aStart = new Date(a.startAtISO).getTime();
@@ -332,8 +315,6 @@ export function useTickets() {
 
       setPartial({ tickets: transformed, loading: false, isOffline: false });
       cache.cacheTicketList(transformed as any);
-      
-      console.log('✅ Tickets refreshed successfully:', transformed.length);
     } catch (e: any) {
       console.error('❌ Error force refreshing tickets:', e);
       setPartial({

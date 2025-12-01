@@ -5,21 +5,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent scroll restoration flash - lock scroll during route transitions */
-html.scroll-locked,
-html.scroll-locked body {
-  overflow: hidden !important;
-  position: fixed !important;
-  width: 100% !important;
-  height: 100% !important;
-  touch-action: none !important;
+/* Scroll restoration is handled by useLayoutEffect in AppContent */
+/* No CSS scroll locks needed - keeping it simple */
+
+/* Profile Cover Image - Negative margin fix */
+/* Only apply negative margin on mobile devices (where safe-area-inset-top > 0) */
+/* On desktop, this prevents layout offset that makes profile appear "scrolled down" */
+.profile-cover-container {
+  margin-top: -1rem; /* Default: negative margin for mobile */
 }
 
-/* Prevent scroll on main content during initial load */
-#main-content.scroll-resetting {
-  overflow-y: hidden !important;
-  pointer-events: none !important;
-  position: relative !important;
+@media (min-width: 768px) {
+  .profile-cover-container {
+    margin-top: 0; /* Desktop: no negative margin to prevent offset */
+  }
 }
 
 /* 🎯 PERF-004: Font Declaration with font-display: swap */
@@ -54,6 +53,42 @@ html.scroll-locked body {
 button, a, [role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* ✅ Safari Mobile: Icon & SVG Rendering Fixes */
+/* Fixes blurry/pixelated icons on Safari mobile */
+svg,
+[class*="lucide"],
+[class*="icon"] {
+  /* Enable hardware acceleration for crisp rendering */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  /* Better anti-aliasing on Safari */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Crisp edges for icons (no blur) */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* Prevent subpixel rendering issues */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ✅ Safari Mobile: Backdrop Blur Fix */
+/* Safari mobile has issues with backdrop-blur - use fallback */
+@supports (-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px)) {
+  /* Modern browsers - use backdrop-blur */
+  .backdrop-blur-fallback {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* Fallback for Safari mobile (semi-transparent background) */
+@supports not ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+  .backdrop-blur-fallback {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+  }
 }
 
 /* Feed virtualization hint */
@@ -236,20 +271,25 @@ video::-webkit-media-controls-enclosure {
 }
 
 /* 🟣 Organizer Mode - Purple Color Override */
+/* Applied globally via data-role on html element */
+html[data-role="organizer"],
+:root[data-role="organizer"],
 [data-role="organizer"] {
   /* Light mode - Switch to Liventix Purple */
-  --primary: 291 68% 41%;  /* #7B1FA2 - Liventix Purple */
-  --primary-foreground: 0 0% 100%;
-  --primary-glow: 291 68% 82%;
-  --ring: 291 68% 52%;
+  --primary: 291 68% 41% !important;  /* #7B1FA2 - Liventix Purple */
+  --primary-foreground: 0 0% 100% !important;
+  --primary-glow: 291 68% 82% !important;
+  --ring: 291 68% 52% !important;
 }
 
+html[data-role="organizer"].dark,
+:root[data-role="organizer"].dark,
 [data-role="organizer"].dark {
   /* Dark mode - Brighter purple for visibility */
-  --primary: 291 68% 56%;
-  --primary-foreground: 0 0% 100%;
-  --primary-glow: 291 68% 70%;
-  --ring: 291 68% 56%;
+  --primary: 291 68% 56% !important;
+  --primary-foreground: 0 0% 100% !important;
+  --primary-glow: 291 68% 70% !important;
+  --ring: 291 68% 56% !important;
 }
 
 /* On-image content legibility */
@@ -393,12 +433,7 @@ html, body {
   /* Applied to all scrollable containers */
   .scroll-container,
   .content-on-nav {
-    scroll-padding-bottom: var(--bottom-nav-safe) !important;
-  }
-
-  /* Ensure main scroll containers have proper bottom padding */
-  .scroll-container {
-    padding-bottom: var(--bottom-nav-safe);
+    scroll-padding-bottom: var(--bottom-nav-safe) !important; /* for scroll snapping / indicators only */
   }
 
   /* Global rule for any element with overflow-y-auto or overflow-y-scroll */

@@ -19,7 +19,7 @@ async function renderHtml(userName: string, recs: any[]) {
           ${r.category ?? ""} ${r.distance_km ? `· ${r.distance_km.toFixed(1)} km` : ""}
         </div>
         <div>
-          <a href="${Deno.env.get("APP_ORIGIN") || "https://liventix.app"}/e/${r.event_id}" style="display:inline-block;margin-top:6px;padding:8px 12px;background:#111;color:#fff;border-radius:6px;text-decoration:none">View event</a>
+          <a href="${Deno.env.get("APP_ORIGIN") || "https://liventix.tech"}/e/${r.event_id}" style="display:inline-block;margin-top:6px;padding:8px 12px;background:#111;color:#fff;border-radius:6px;text-decoration:none">View event</a>
         </div>
       </td>
     </tr>

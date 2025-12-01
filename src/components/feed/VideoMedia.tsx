@@ -5,11 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { logVideoError, logVideoMetric, createVideoContext } from "@/utils/videoLogger";
 import { logger } from "@/utils/logger";
+import { Volume2, VolumeX } from "lucide-react";
 
 // 🎯 Lazy-load Mux Player (saves ~78 KB from initial bundle)
 const MuxPlayer = lazy(() => import("@mux/mux-player-react").then(m => ({ default: m.default })));
 
-type MuxPlayerRefElement = any; // React.ElementRef<typeof MuxPlayer> - can't use with lazy
+type MuxPlayerRefElement = any;
 
 interface VideoMediaProps {
   url: string;
@@ -23,16 +24,19 @@ interface VideoMediaProps {
   visible: boolean;
   trackVideoProgress?: (postId: string, eventId: string, video: HTMLVideoElement) => void;
   globalSoundEnabled?: boolean;
+  hideCaption?: boolean; // Hide the built-in caption overlay (for use in viewers that have their own)
+  hideControls?: boolean; // Hide the mute button (for use with native video controls)
 }
 
-export function VideoMedia({ url, post, visible, trackVideoProgress, globalSoundEnabled }: VideoMediaProps) {
+export function VideoMedia({ url, post, visible, trackVideoProgress, globalSoundEnabled, hideCaption = false, hideControls = false }: VideoMediaProps) {
   // ALWAYS start muted for reliable autoplay on iOS/mobile
   const [muted, setMuted] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [hasBeenVisible, setHasBeenVisible] = useState(visible); // ✅ Track if ever visible
+  const [hasBeenVisible, setHasBeenVisible] = useState(visible);
+  
   const playerRef = useRef<MuxPlayerRefElement | null>(null);
   const viewTrackedRef = useRef(false);
   const playTrackedRef = useRef(false);
@@ -48,11 +52,10 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const muxEnvKey = import.meta.env.VITE_MUX_DATA_ENV_KEY ?? "5i41hf91q117pfu1fgli0glfs";
   const muxBeaconDomain = import.meta.env.VITE_MUX_BEACON_DOMAIN;
 
-  // ✅ OPTIMIZATION: Use IntersectionObserver for accurate visibility detection
-  // This ensures videos only preload when actually near the viewport
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // ✅ IntersectionObserver for visibility detection
   useEffect(() => {
-    // If explicitly marked as visible, preload immediately
     if (visible) {
       if (!hasBeenVisible) {
         setHasBeenVisible(true);
@@ -60,22 +63,20 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
       return;
     }
 
-    // Otherwise, use IntersectionObserver to detect when near viewport
     if (!containerRef.current) {
       return;
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Preload when within 200px of viewport (for smooth scrolling)
         const isNearViewport = entry.isIntersecting || entry.intersectionRatio > 0;
         if (isNearViewport && !hasBeenVisible) {
           setHasBeenVisible(true);
         }
       },
       {
-        rootMargin: '200px', // Preload when 200px away (good balance for feed scrolling)
-        threshold: [0, 0.1], // Trigger at 0% and 10% visibility
+        rootMargin: '200px',
+        threshold: [0, 0.1],
       }
     );
 
@@ -127,7 +128,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           }
           break;
         case "video_quartile":
-          // Avoid spamming analytics with frequent updates, but capture completion events.
           if (detail?.quartile === "Q4" && !completeTrackedRef.current) {
             completeTrackedRef.current = true;
             sendMuxEngagement("video_complete", detail);
@@ -151,10 +151,8 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
     if (visible) {
       el.muted = muted;
       
-      // ✅ OPTIMIZATION: Immediate play attempt (don't wait for isReady)
       const attemptPlay = async () => {
         try {
-          // Force load if not already loading
           if (el.readyState < 2) {
             el.load();
           }
@@ -164,10 +162,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
           
-          // Skip AbortError - these are expected when play() is interrupted by new load requests
-          // This happens when user scrolls, video unmounts, or new video loads
           if (error.name === 'AbortError' || error.message.includes('interrupted by a new load request')) {
-            // Silently handle - this is expected browser behavior
             setIsPlaying(false);
             return;
           }
@@ -200,11 +195,8 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
         }
       };
 
-      // Try to play immediately, don't wait for isReady
       attemptPlay();
     } else {
-      // ✅ FIX: Pause video when scrolling up OR down (when not visible)
-      // Use requestAnimationFrame to ensure pause happens immediately
       requestAnimationFrame(() => {
         if (el && !visible) {
           el.pause();
@@ -228,11 +220,9 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
     const el = playerRef.current;
     const nextMuted = !globalSoundEnabled;
 
-    // ✅ OPTIMIZATION: Immediate state update (no delay)
     setMuted(nextMuted);
 
     if (el) {
-      // ✅ OPTIMIZATION: Use requestAnimationFrame for smooth audio transition
       requestAnimationFrame(() => {
         el.muted = nextMuted;
         if (!nextMuted && visible) {
@@ -251,12 +241,17 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   }, [trackVideoProgress, post?.id, post?.event_id, playbackId]);
 
   const handleToggleMute = useCallback(() => {
-    const el = playerRef.current;
+    const el = playerRef.current as HTMLVideoElement | null;
     if (!el) return;
     const next = !muted;
     setMuted(next);
     el.muted = next;
+    
+    // When unmuting, ensure volume is audible and playback resumes
     if (!next) {
+      if (el.volume < 0.1) {
+        el.volume = 1;
+      }
       el.play().catch(() => {});
     }
   }, [muted]);
@@ -280,7 +275,7 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
 
   if (!playbackId) {
     return (
-      <div className="w-full aspect-[9/16] max-h-[80vh] rounded-3xl bg-muted flex items-center justify-center">
+      <div className="h-full w-full bg-black flex items-center justify-center sm:rounded-3xl">
         <p className="text-muted-foreground">Invalid video URL</p>
       </div>
     );
@@ -291,15 +286,22 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
   const poster = posterUrl({ playbackId }, { time: 1, width: 720, fitMode: "preserve" });
 
   return (
-    <div ref={containerRef}
+    <div 
+      ref={containerRef}
       className={cn(
-        "relative w-full overflow-hidden rounded-3xl bg-background aspect-[9/16] max-h-[82vh] shadow-xl",
-        "group"
+        "relative h-full w-full overflow-hidden bg-black group",
+        "sm:rounded-3xl sm:shadow-xl"
+        // ✅ Removed touch-none - allows normal scrolling
       )}
     >
-      <div className="absolute inset-0 z-20 cursor-pointer" onClick={handleTogglePlayback} aria-hidden="true" />
+      {/* Transparent tap area for play/pause - doesn't block scrolling */}
+      <div 
+        className="absolute inset-0 z-20"
+        onClick={handleTogglePlayback}
+        aria-hidden="true"
+      />
 
-      {/* 🎯 Wrap MuxPlayer in Suspense for lazy loading */}
+      {/* 🎯 Lazy-loaded Mux player */}
       <Suspense fallback={
         <div className="absolute inset-0 flex items-center justify-center bg-black/90">
           <BrandedSpinner size="sm" text="Loading video..." />
@@ -313,7 +315,6 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           muted={muted}
           loop
           playsInline
-          nocast
           preload="auto"
           crossOrigin="anonymous"
           poster={poster}
@@ -321,121 +322,161 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           envKey={muxEnvKey}
           beaconCollectionDomain={muxBeaconDomain}
           metadata={{
-          video_id: playbackId,
-          video_title: title,
-          video_series: post?.event_id ? `event:${post.event_id}` : undefined,
-          video_series_id: post?.event_id,
-          viewer_user_id: viewerId,
-          custom_1: post?.id,
-          custom_2: post?.text ?? undefined,
-          player_name: "Liventix Feed",
-        }}
-        style={{ 
-          width: "100%", 
-          height: "100%", 
-          objectFit: "cover", 
-          backgroundColor: "black",
-          // ✅ OPTIMIZATION: Hardware acceleration for smoother playback
-          willChange: visible ? 'transform' : 'auto',
-        }}
-        className="pointer-events-none h-full w-full"
-        onLoadStart={() => {
-          setIsReady(false);
-          setIsBuffering(true);
-          loadStartTimeRef.current = performance.now();
-        }}
-        onLoadedMetadata={() => {
-          setIsReady(true);
-          setIsBuffering(false);
-          
-          // Track time to first frame (metadata loaded)
-          if (loadStartTimeRef.current) {
-            const timeToMetadata = performance.now() - loadStartTimeRef.current;
-            if (!firstFrameTimeRef.current) {
-              firstFrameTimeRef.current = performance.now();
-              logVideoMetric({
-                metric: 'time_to_first_frame',
-                playbackId,
-                url,
-                value: timeToMetadata,
-                context: {
-                  postId: post?.id,
-                  eventId: post?.event_id,
-                },
-              });
+            video_id: playbackId,
+            video_title: title,
+            video_series: post?.event_id ? `event:${post.event_id}` : undefined,
+            video_series_id: post?.event_id,
+            viewer_user_id: viewerId,
+            custom_1: post?.id,
+            custom_2: post?.text ?? undefined,
+            player_name: "Liventix Feed",
+          }}
+          style={{ 
+            width: "100%", 
+            height: "100%", 
+            objectFit: "cover", 
+            backgroundColor: "black",
+            willChange: visible ? 'transform' : 'auto',
+          }}
+          className="pointer-events-none h-full w-full"
+          onLoadStart={() => {
+            setIsReady(false);
+            setIsBuffering(true);
+            loadStartTimeRef.current = performance.now();
+          }}
+          onLoadedMetadata={() => {
+            setIsReady(true);
+            setIsBuffering(false);
+            
+            if (loadStartTimeRef.current) {
+              const timeToMetadata = performance.now() - loadStartTimeRef.current;
+              if (!firstFrameTimeRef.current) {
+                firstFrameTimeRef.current = performance.now();
+                logVideoMetric({
+                  metric: 'time_to_first_frame',
+                  playbackId,
+                  url,
+                  value: timeToMetadata,
+                  context: {
+                    postId: post?.id,
+                    eventId: post?.event_id,
+                  },
+                });
+              }
             }
-          }
-        }}
-        onPlay={() => {
-          setIsPlaying(true);
-          setIsReady(true);
-          setIsBuffering(false);
-          
-          // Track time to play
-          if (loadStartTimeRef.current) {
-            const timeToPlay = performance.now() - loadStartTimeRef.current;
-            if (!playStartTimeRef.current) {
-              playStartTimeRef.current = performance.now();
-              logVideoMetric({
-                metric: 'time_to_play',
-                playbackId,
-                url,
-                value: timeToPlay,
-                context: {
-                  postId: post?.id,
-                  eventId: post?.event_id,
-                },
-              });
+          }}
+          onPlay={() => {
+            setIsPlaying(true);
+            setIsReady(true);
+            setIsBuffering(false);
+            
+            if (loadStartTimeRef.current) {
+              const timeToPlay = performance.now() - loadStartTimeRef.current;
+              if (!playStartTimeRef.current) {
+                playStartTimeRef.current = performance.now();
+                logVideoMetric({
+                  metric: 'time_to_play',
+                  playbackId,
+                  url,
+                  value: timeToPlay,
+                  context: {
+                    postId: post?.id,
+                    eventId: post?.event_id,
+                  },
+                });
+              }
             }
-          }
-        }}
-        onPause={() => setIsPlaying(false)}
-        onPlaying={() => {
-          setIsPlaying(true);
-          setIsBuffering(false);
-        }}
-        onWaiting={() => setIsBuffering(true)}
-        onEnded={() => {
-          completeTrackedRef.current = false;
-          playTrackedRef.current = false;
-        }}
-        onTimeUpdate={handleTimeUpdate}
-        onVolumeChange={() => {
-          const el = playerRef.current;
-          if (el) setMuted(el.muted);
-        }}
-        onError={(e) => {
-          const videoElement = playerRef.current as unknown as HTMLVideoElement | null;
-          logVideoError({
-            type: 'playback_error',
-            playbackId,
-            url,
-            error: e instanceof Error ? e : new Error(String(e)),
-            context: {
-              ...createVideoContext(videoElement, playbackId, post?.id, post?.event_id),
-            },
-          });
-        }}
-      />
+          }}
+          onPause={() => setIsPlaying(false)}
+          onPlaying={() => {
+            setIsPlaying(true);
+            setIsBuffering(false);
+          }}
+          onWaiting={() => setIsBuffering(true)}
+          onEnded={() => {
+            completeTrackedRef.current = false;
+            playTrackedRef.current = false;
+          }}
+          onTimeUpdate={handleTimeUpdate}
+          onVolumeChange={() => {
+            const el = playerRef.current as HTMLVideoElement | null;
+            if (!el) return;
+            
+            const nowMuted = el.muted;
+            setMuted(nowMuted);
+            
+            // iOS quirk: after unmuting, ensure volume is up and call play()
+            if (!nowMuted) {
+              // Ensure volume is audible (not just unmuted but at 0 volume)
+              if (el.volume < 0.1) {
+                el.volume = 1;
+              }
+              // If paused, resume playback for audio to work
+              if (el.paused) {
+                el.play().catch(() => {});
+              }
+            }
+          }}
+          onError={(e) => {
+            const videoElement = playerRef.current as unknown as HTMLVideoElement | null;
+            logVideoError({
+              type: 'playback_error',
+              playbackId,
+              url,
+              error: e instanceof Error ? e : new Error(String(e)),
+              context: {
+                ...createVideoContext(videoElement, playbackId, post?.id, post?.event_id),
+              },
+            });
+          }}
+        />
       </Suspense>
 
-      <div className="absolute inset-x-0 top-0 h-1 bg-muted/30">
-        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+      {/* Progress bar - thin and unobtrusive */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-muted/30 z-25">
+        <div 
+          className="h-full bg-primary transition-[width] duration-200" 
+          style={{ width: `${progress}%` }} 
+        />
       </div>
 
+      {/* Buffering overlay */}
       {isBuffering && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 pointer-events-none">
           <BrandedSpinner size="lg" className="text-foreground" />
         </div>
       )}
 
-      {post?.user_profiles?.display_name && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-background via-background/60 to-transparent px-5 pb-5 pt-20">
-          <p className="text-base font-bold text-foreground drop-shadow-lg">
+      {/* Mute/unmute button - always visible on mobile for easy access (hidden when hideControls is true) */}
+      {!hideControls && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleMute();
+          }}
+          className={cn(
+            "absolute bottom-4 right-4 z-30",
+            "flex h-9 w-9 items-center justify-center rounded-full",
+            "bg-black/50 text-white backdrop-blur-sm transition-all",
+            "hover:bg-black/70 active:scale-95"
+          )}
+          aria-label={muted ? "Unmute video" : "Mute video"}
+        >
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+      )}
+
+      {/* Caption overlay - simplified (hidden when hideCaption is true) */}
+      {!hideCaption && post?.user_profiles?.display_name && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-14 pt-16">
+          <p className="text-sm font-semibold text-white drop-shadow-md">
             {post.user_profiles.display_name}
           </p>
           {post?.text && (
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-foreground/90 drop-shadow-md">{post.text}</p>
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/85 drop-shadow">
+              {post.text}
+            </p>
           )}
         </div>
       )}

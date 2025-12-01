@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUnifiedFeedInfinite } from '@/hooks/useUnifiedFeedInfinite';
 import { useCampaignBoosts } from '@/hooks/useCampaignBoosts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +15,6 @@ import { PostCreatorModal } from '@/features/posts';
 import EventCheckoutSheet from '@/components/EventCheckoutSheet';
 import { EventCardNewDesign } from '@/components/feed/EventCardNewDesign';
 import { UserPostCardNewDesign } from '@/components/feed/UserPostCardNewDesign';
-import { TopFilters } from '@/components/feed/TopFilters';
 import { FloatingActions } from '@/components/feed/FloatingActions';
 import { ProfileCompletionModal } from '@/components/auth/ProfileCompletionModal';
 import { BrandedSpinner } from '@/components/BrandedSpinner';
@@ -37,7 +36,7 @@ type FeedFilters = {
 
 const DEFAULT_FILTERS: FeedFilters = {
   dates: [],
-  locations: ['Near Me'],
+  locations: [], // Start with no location filter - show all events
   categories: [],
   searchRadius: 25,
 };
@@ -56,12 +55,21 @@ const isVideoPost = (item: FeedItem) =>
 
 export default function FeedPageNewDesign() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { requireAuth, isAuthenticated } = useAuthGuard();
   const { user, profile, updateProfileOptimistic } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
+
+  // ✅ Reset scroll position when navigating to feed page (similar to profile page fix)
+  useLayoutEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+      scrollRef.current.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, [location.pathname]);
 
   const [filters, setFilters] = useState<FeedFilters>(() => createDefaultFilters());
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -586,61 +594,42 @@ export default function FeedPageNewDesign() {
 
   return (
     <div 
-      className="relative w-full overflow-hidden bg-background text-foreground"
+      className="relative w-full h-full min-h-0 overflow-hidden bg-background text-foreground"
       style={{
         height: '100dvh',
         minHeight: '-webkit-fill-available',
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-950 via-black to-black" />
       <div className="pointer-events-none absolute left-1/2 top-[-30%] h-[520px] w-[125%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(circle_at_center,_rgba(120,119,198,0.35)_0%,_rgba(32,31,60,0.05)_55%,_transparent_75%)] blur-3xl" />
 
-      {/* Top Filters */}
-      <TopFilters
-        location={activeLocation}
-        dateFilter={activeDate}
-        onLocationClick={() => {
-          setFiltersOpen(true);
-          registerInteraction();
-        }}
-        onDateClick={() => {
-          setFiltersOpen(true);
-          registerInteraction();
-        }}
-        onFiltersClick={() => {
-          setFiltersOpen(true);
-          registerInteraction();
-        }}
-        hasActiveFilters={hasActiveFilters}
-        onClearFilters={handleClearFilters}
-      />
-
-      {/* Floating Actions - Hidden when filters are open */}
+      {/* Floating Actions - All buttons in one container, hidden when filters are open */}
       {!filtersOpen && (
-        <>
-          <FloatingActions
-        isMuted={!globalSoundEnabled}
-        onMuteToggle={handleToggleGlobalSound}
-        onCreatePost={handleCreatePost}
-        onLike={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
-          const item = allFeedItems[activeIndex];
-          handleLike(item);
-        } : undefined}
-        onComment={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
-          const item = allFeedItems[activeIndex];
-          handleComment(item);
-        } : undefined}
-        onShare={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
-          const item = allFeedItems[activeIndex];
-          handleSharePost(item);
-        } : undefined}
-        onSave={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
-          const item = allFeedItems[activeIndex];
-          handleSave(item);
-        } : undefined}
+        <FloatingActions
+          isMuted={!globalSoundEnabled}
+          onMuteToggle={handleToggleGlobalSound}
+          onCreatePost={handleCreatePost}
+          onFiltersClick={() => {
+            setFiltersOpen(true);
+            registerInteraction();
+          }}
+          onLike={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+            const item = allFeedItems[activeIndex];
+            handleLike(item);
+          } : undefined}
+          onComment={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+            const item = allFeedItems[activeIndex];
+            handleComment(item);
+          } : undefined}
+          onShare={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+            const item = allFeedItems[activeIndex];
+            handleSharePost(item);
+          } : undefined}
+          onSave={allFeedItems[activeIndex]?.item_type === 'post' ? () => {
+            const item = allFeedItems[activeIndex];
+            handleSave(item);
+          } : undefined}
         likeCount={allFeedItems[activeIndex]?.item_type === 'post' ? 
           getOptimisticData(
             allFeedItems[activeIndex].item_id, 
@@ -661,7 +650,6 @@ export default function FeedPageNewDesign() {
         }
         isSaved={allFeedItems[activeIndex]?.item_type === 'post' ? savedPostIds.has(allFeedItems[activeIndex].item_id) : false}
       />
-        </>
       )}
 
       {soundToastVisible && (
@@ -686,7 +674,6 @@ export default function FeedPageNewDesign() {
         style={{ 
           WebkitOverflowScrolling: 'touch', 
           scrollSnapStop: 'always',
-          scrollPaddingBottom: 'var(--bottom-nav-safe)',
         }}
       >
         {allFeedItems.map((item, idx) => {
@@ -709,8 +696,9 @@ export default function FeedPageNewDesign() {
               data-index={idx}
               className="snap-start snap-always relative w-full"
               style={{
-                height: '100dvh',
-                minHeight: '-webkit-fill-available',
+                // One item per screen, but leave room for bottom nav
+                height: 'calc(100dvh - var(--bottom-nav-safe, 4.5rem))',
+                minHeight: 'calc(100dvh - var(--bottom-nav-safe, 4.5rem))',
               }}
             >
               {item.item_type === 'event' ? (
@@ -740,7 +728,11 @@ export default function FeedPageNewDesign() {
           );
         })}
 
-        <div ref={sentinelRef} className="h-32" />
+        {/* Tiny sentinel so it doesn't add visible extra scroll */}
+        <div
+          ref={sentinelRef}
+          className="h-px w-full opacity-0 pointer-events-none"
+        />
         
         {/* 🎯 PERF-009: Replace spinner with skeleton for next page */}
         {isFetchingNextPage && (
@@ -765,8 +757,6 @@ export default function FeedPageNewDesign() {
             </div>
           </div>
         )}
-        
-        <div className="h-24" />
       </div>
 
       <FeedFilter
@@ -811,7 +801,7 @@ export default function FeedPageNewDesign() {
         onSuccess={() => {
           setTicketModalOpen(false);
           setTicketModalEvent(null);
-          navigate('/tickets-new');
+          navigate('/tickets');
         }}
       />
 

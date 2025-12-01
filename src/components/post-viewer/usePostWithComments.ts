@@ -13,6 +13,95 @@ const tableExistenceCache = {
   event_reactions: false as boolean | null,
 };
 
+// Simple post cache for instant navigation (keeps last 10 posts)
+const postCache = new Map<string, { post: Post; timestamp: number }>();
+const POST_CACHE_TTL = 60_000; // 1 minute
+const MAX_CACHE_SIZE = 10;
+
+function getCachedPost(postId: string): Post | null {
+  const cached = postCache.get(postId);
+  if (!cached) return null;
+  // Check if still valid
+  if (Date.now() - cached.timestamp > POST_CACHE_TTL) {
+    postCache.delete(postId);
+    return null;
+  }
+  return cached.post;
+}
+
+function setCachedPost(postId: string, post: Post) {
+  // Evict oldest if at capacity
+  if (postCache.size >= MAX_CACHE_SIZE) {
+    const oldest = [...postCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+    if (oldest) postCache.delete(oldest[0]);
+  }
+  postCache.set(postId, { post, timestamp: Date.now() });
+}
+
+// Lightweight prefetch - just loads basic post data into cache
+const prefetchingIds = new Set<string>();
+
+export async function prefetchPost(eventId: string, postId: string): Promise<void> {
+  // Skip if already cached or currently prefetching
+  if (getCachedPost(postId) || prefetchingIds.has(postId)) return;
+  
+  prefetchingIds.add(postId);
+  
+  try {
+    const { data: postRow, error } = await supabase
+      .from("event_posts")
+      .select("id, text, author_user_id, created_at, media_urls, like_count, comment_count, ticket_tier_id")
+      .eq("id", postId)
+      .eq("event_id", eventId)
+      .maybeSingle();
+
+    if (error || !postRow) return;
+
+    // Fetch author profile in parallel with tier
+    const [profileRes, tierRes] = await Promise.all([
+      supabase
+        .from("user_profiles")
+        .select("user_id, display_name, photo_url")
+        .eq("user_id", postRow.author_user_id)
+        .maybeSingle(),
+      postRow.ticket_tier_id
+        ? supabase
+            .from("ticket_tiers")
+            .select("id, badge_label")
+            .eq("id", postRow.ticket_tier_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    const authorProfile = profileRes.data;
+    const tier = tierRes.data;
+
+    // Build a minimal cached post (without comments - those load on demand)
+    const prefetchedPost: Post = {
+      id: postRow.id,
+      text: postRow.text,
+      author_user_id: postRow.author_user_id,
+      created_at: postRow.created_at,
+      media_urls: (postRow.media_urls ?? []).map(muxToHls),
+      author_name: authorProfile?.display_name ?? "Anonymous",
+      author_avatar: authorProfile?.photo_url ?? null,
+      author_badge: tier?.badge_label ?? null,
+      author_is_organizer: false,
+      comments: [], // Comments load on demand
+      likes_count: postRow.like_count ?? 0,
+      is_liked: false, // Will be updated when fully loaded
+      comment_count: postRow.comment_count ?? 0,
+    };
+
+    setCachedPost(postId, prefetchedPost);
+  } catch (e) {
+    // Silent fail for prefetch
+    console.debug("[prefetchPost] Failed:", e);
+  } finally {
+    prefetchingIds.delete(postId);
+  }
+}
+
 async function resolvePostIdFromMedia(eventId: string, playbackId: string) {
   const { data, error } = await supabase
     .from("event_posts")
@@ -87,9 +176,18 @@ export function usePostWithComments(
       return;
     }
     let mounted = true;
-    // Reset post immediately when postId changes to prevent showing stale data
-    setPost(null);
-    setLoading(true);
+
+    // Check cache first for instant navigation
+    const cachedPost = getCachedPost(postId);
+    if (cachedPost) {
+      setPost(cachedPost);
+      setLoading(false);
+      onCommentCountChangeRef.current?.(cachedPost.id, cachedPost.comment_count);
+      // Still fetch fresh data in background
+    } else {
+      // Keep showing previous post while loading (smoother transition)
+      setLoading(true);
+    }
 
     (async () => {
       try {
@@ -339,6 +437,9 @@ export function usePostWithComments(
           is_liked: isLiked,
           comment_count: postRow.comment_count ?? 0,
         };
+
+        // Cache for instant navigation
+        setCachedPost(mappedPost.id, mappedPost);
 
         if (mounted) {
           setPost(mappedPost);

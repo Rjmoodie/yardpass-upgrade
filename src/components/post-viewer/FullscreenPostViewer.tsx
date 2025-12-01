@@ -15,16 +15,22 @@ import {
   Heart,
   MessageCircle,
   Share2,
+  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePostWithComments } from "./usePostWithComments";
-import type { Post } from "./types";
+import { usePostWithComments, prefetchPost } from "./usePostWithComments";
+import { usePostSequenceNavigation } from "./usePostSequenceNavigation";
+import type { Post, PostRef } from "./types";
+
+// Re-export for consumers
+export type { PostRef } from "./types";
 import { CommentsSheet } from "@/features/comments";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { routes } from "@/lib/routes";
 import { toast } from "@/hooks/use-toast";
+import { VideoMedia } from "@/components/feed/VideoMedia";
 
 function isImageUrl(url: string) {
   if (!url) return false;
@@ -40,14 +46,22 @@ function isImageUrl(url: string) {
   return false;
 }
 
+function isVideoUrl(url: string) {
+  if (!url) return false;
+  if (url.startsWith("mux:")) return true;
+  if (url.includes("stream.mux.com")) return true;
+  return /\.(mp4|mov|webm)$/i.test(url);
+}
+
 type FullscreenPostViewerProps = {
   isOpen: boolean;
   onClose: () => void;
-  eventId: string;
+  eventId?: string;              // Default event ID (used when postRefSequence not provided)
   eventTitle: string;
-  postId?: string;
+  postId?: string;               // Single-post mode
   mediaPlaybackId?: string;
-  postIdSequence?: string[];
+  postRefSequence?: PostRef[];   // Sequence with per-post eventId (for profile page, mixed events)
+  postIdSequence?: string[];     // Legacy: simple ID array (assumes all same eventId)
   initialIndex?: number;
   onCommentCountChange?: (postId: string, newCount: number) => void;
   onPostDelete?: (postId: string) => void;
@@ -61,6 +75,7 @@ export function FullscreenPostViewer({
   eventTitle,
   postId,
   mediaPlaybackId,
+  postRefSequence,
   postIdSequence,
   initialIndex,
   onCommentCountChange,
@@ -69,61 +84,78 @@ export function FullscreenPostViewer({
 }: FullscreenPostViewerProps) {
   const { user, profile } = useAuth();
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState<number | null>(null);
-
-  // Swipe / drag state (vertical)
-  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number } | null>(
-    null,
-  );
+  const [isOrganizer, setIsOrganizer] = useState(false);
+  
+  // Swipe state for mobile
+  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-
-  // Wheel navigation cooldown (global)
+  const [captionExpanded, setCaptionExpanded] = useState(false);
   const wheelTimeoutRef = useRef<number | null>(null);
+  
+  // Cross-fade state: keep previous post visible during transition
+  const [displayedPost, setDisplayedPost] = useState<Post | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Detect touch devices
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const touch =
-      "ontouchstart" in window ||
-      navigator.maxTouchPoints > 0 ||
-      // @ts-ignore
-      navigator.msMaxTouchPoints > 0;
-    setIsTouchDevice(touch);
-  }, []);
+  // Normalize sequences: prefer postRefSequence, fall back to postIdSequence with default eventId
+  const normalizedSequence = useMemo((): PostRef[] => {
+    if (postRefSequence && postRefSequence.length > 0) {
+      return postRefSequence;
+    }
+    if (postIdSequence && postIdSequence.length > 0 && eventId) {
+      return postIdSequence.map((id) => ({ id, eventId }));
+    }
+    return [];
+  }, [postRefSequence, postIdSequence, eventId]);
 
-  const totalPosts = postIdSequence?.length ?? 0;
-  const hasSequence = !!postIdSequence && totalPosts > 1;
+  const totalPosts = normalizedSequence.length;
+  const hasSequence = totalPosts > 1;
 
-  // Resolve starting index
+  // Compute initial index
+  const computedInitialIndex = useMemo(() => {
+    if (typeof initialIndex === "number" && initialIndex >= 0 && initialIndex < totalPosts) {
+      return initialIndex;
+    }
+    if (postId && normalizedSequence.length > 0) {
+      const idx = normalizedSequence.findIndex((ref) => ref.id === postId);
+      return idx !== -1 ? idx : 0;
+    }
+    return 0;
+  }, [initialIndex, postId, normalizedSequence, totalPosts]);
+
+  // Navigation hook
+  const {
+    index: currentIndex,
+    setIndex: setCurrentIndex,
+    canGoPrev,
+    canGoNext,
+    goPrev: navPrev,
+    goNext: navNext,
+  } = usePostSequenceNavigation(totalPosts, computedInitialIndex);
+
+  // Wrap navigation to reset UI state
+  const goPrev = useCallback(() => {
+    setIsCommentsOpen(false);
+    setCaptionExpanded(false);
+    navPrev();
+  }, [navPrev]);
+
+  const goNext = useCallback(() => {
+    setIsCommentsOpen(false);
+    setCaptionExpanded(false);
+    navNext();
+  }, [navNext]);
+
+  // Reset state when closed
   useEffect(() => {
     if (!isOpen) {
-      setCurrentIndex(null);
       setIsCommentsOpen(false);
       setSwipeStart(null);
       setSwipeOffset(0);
-      return;
+      setCaptionExpanded(false);
     }
+  }, [isOpen]);
 
-    if (postIdSequence && postIdSequence.length > 0) {
-      if (
-        typeof initialIndex === "number" &&
-        initialIndex >= 0 &&
-        initialIndex < postIdSequence.length
-      ) {
-        setCurrentIndex(initialIndex);
-      } else if (postId) {
-        const idx = postIdSequence.indexOf(postId);
-        setCurrentIndex(idx !== -1 ? idx : 0);
-      } else {
-        setCurrentIndex(0);
-      }
-    } else {
-      setCurrentIndex(null);
-    }
-  }, [isOpen, postIdSequence, initialIndex, postId]);
-
-  // Cleanup wheel cooldown on unmount
+  // Cleanup wheel timeout
   useEffect(() => {
     return () => {
       if (wheelTimeoutRef.current) {
@@ -132,30 +164,90 @@ export function FullscreenPostViewer({
     };
   }, []);
 
-  const activePostId = useMemo(() => {
-    if (postIdSequence && postIdSequence.length > 0) {
+  // Get active post reference (with correct eventId)
+  const activeRef = useMemo((): PostRef | null => {
+    if (normalizedSequence.length > 0) {
       const safeIndex =
         currentIndex === null
           ? 0
-          : Math.min(Math.max(currentIndex, 0), postIdSequence.length - 1);
-      return postIdSequence[safeIndex];
+          : Math.min(Math.max(currentIndex, 0), normalizedSequence.length - 1);
+      return normalizedSequence[safeIndex];
     }
     // Single-post mode
-    return postId ?? null;
-  }, [postIdSequence, currentIndex, postId]);
+    if (postId && eventId) {
+      return { id: postId, eventId };
+    }
+    return null;
+  }, [normalizedSequence, currentIndex, postId, eventId]);
+
+  const activePostId = activeRef?.id ?? null;
+  const activeEventId = activeRef?.eventId ?? eventId ?? "";
 
   const { post, setPost, loading } = usePostWithComments(
-    eventId,
+    activeEventId,  // Use per-post eventId
     activePostId,
     mediaPlaybackId,
-    onCommentCountChange,
+    onCommentCountChange
   );
 
-  const [isOrganizer, setIsOrganizer] = useState(false);
-
-  // Organizer check
+  // Cross-fade: smoothly transition between posts without flash
   useEffect(() => {
-    if (!user?.id || !eventId || !isOpen) return;
+    if (!post) return;
+    
+    // If same post, just update without transition
+    if (displayedPost?.id === post.id) {
+      setDisplayedPost(post);
+      return;
+    }
+    
+    // New post: trigger transition
+    setIsTransitioning(true);
+    
+    // Brief fade-out, then swap, then fade-in
+    const timer = setTimeout(() => {
+      setDisplayedPost(post);
+      setIsTransitioning(false);
+    }, 80); // Quick 80ms transition
+    
+    return () => clearTimeout(timer);
+  }, [post, displayedPost?.id]);
+
+  // Reset displayed post when viewer closes
+  useEffect(() => {
+    if (!isOpen) {
+      setDisplayedPost(null);
+      setIsTransitioning(false);
+    }
+  }, [isOpen]);
+
+  // Prefetch adjacent posts for instant swipe navigation
+  useEffect(() => {
+    if (!hasSequence || currentIndex === null) return;
+
+    const prefetchRefs: PostRef[] = [];
+    
+    // Prefetch next 2 posts
+    if (currentIndex < normalizedSequence.length - 1) {
+      prefetchRefs.push(normalizedSequence[currentIndex + 1]);
+    }
+    if (currentIndex < normalizedSequence.length - 2) {
+      prefetchRefs.push(normalizedSequence[currentIndex + 2]);
+    }
+    
+    // Prefetch previous post
+    if (currentIndex > 0) {
+      prefetchRefs.push(normalizedSequence[currentIndex - 1]);
+    }
+
+    // Fire off prefetches with correct eventId per post (non-blocking)
+    prefetchRefs.forEach((ref) => {
+      prefetchPost(ref.eventId, ref.id);
+    });
+  }, [hasSequence, currentIndex, normalizedSequence]);
+
+  // Organizer check (for CommentsSheet) - uses activeEventId
+  useEffect(() => {
+    if (!user?.id || !activeEventId || !isOpen) return;
 
     let cancelled = false;
     (async () => {
@@ -164,7 +256,7 @@ export function FullscreenPostViewer({
         const { data, error } = await supabase
           .from("events")
           .select("created_by, owner_context_type, owner_context_id")
-          .eq("id", eventId)
+          .eq("id", activeEventId)
           .single();
 
         if (error || cancelled) return;
@@ -204,130 +296,79 @@ export function FullscreenPostViewer({
     return () => {
       cancelled = true;
     };
-  }, [user?.id, eventId, isOpen]);
+  }, [user?.id, activeEventId, isOpen]);
 
-  const canGoPrev =
-    hasSequence && currentIndex !== null && currentIndex > 0;
-  const canGoNext =
-    hasSequence &&
-    currentIndex !== null &&
-    currentIndex < totalPosts - 1;
+  // Swipe handlers for mobile
+  const handleSwipeStart = useCallback((e: React.TouchEvent) => {
+    if (isCommentsOpen || !hasSequence) return;
+    const touch = e.touches[0];
+    setSwipeStart({ x: touch.clientX, y: touch.clientY });
+    setSwipeOffset(0);
+  }, [isCommentsOpen, hasSequence]);
 
-  const goPrev = useCallback(() => {
-    if (!canGoPrev || currentIndex === null || !hasSequence) return;
-    setIsCommentsOpen(false);
-    setCurrentIndex(currentIndex - 1);
-  }, [canGoPrev, currentIndex, hasSequence]);
-
-  const goNext = useCallback(() => {
-    if (!canGoNext || currentIndex === null || !hasSequence) return;
-    setIsCommentsOpen(false);
-    setCurrentIndex(currentIndex + 1);
-  }, [canGoNext, currentIndex, hasSequence]);
-
-  // --- Swipe / drag handlers (vertical, touch-only) -----------------------------
-
-  const handleSwipeStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isTouchDevice || isCommentsOpen || !hasSequence) return;
-
-      const touch = e.touches[0];
-      setSwipeStart({ x: touch.clientX, y: touch.clientY });
-      setSwipeOffset(0);
-    },
-    [isTouchDevice, isCommentsOpen, hasSequence],
-  );
-
-  const handleSwipeMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isTouchDevice || !swipeStart || isCommentsOpen || !hasSequence) return;
-
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - swipeStart.x;
-      const deltaY = touch.clientY - swipeStart.y;
-
-      // only treat mostly-vertical as swipe
-      if (Math.abs(deltaY) > Math.abs(deltaX)) {
-        setSwipeOffset(deltaY);
-      }
-    },
-    [isTouchDevice, swipeStart, isCommentsOpen, hasSequence],
-  );
+  const handleSwipeMove = useCallback((e: React.TouchEvent) => {
+    if (!swipeStart || isCommentsOpen || !hasSequence) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - swipeStart.x;
+    const deltaY = touch.clientY - swipeStart.y;
+    // Horizontal swipe for left/right nav
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      setSwipeOffset(deltaX);
+    }
+  }, [swipeStart, isCommentsOpen, hasSequence]);
 
   const handleSwipeEnd = useCallback(() => {
-    if (!isTouchDevice || !swipeStart || isCommentsOpen || !hasSequence) {
+    if (!swipeStart || isCommentsOpen || !hasSequence) {
       setSwipeStart(null);
       setSwipeOffset(0);
       return;
     }
 
-    const threshold = window.innerHeight * 0.10; // 10% instead of 18%
+    const threshold = window.innerWidth * 0.1; // 10% of screen width (easier swipe)
 
-    if (swipeOffset > threshold && canGoPrev) {
-      goPrev();
-    } else if (swipeOffset < -threshold && canGoNext) {
+    if (swipeOffset < -threshold && canGoNext) {
       goNext();
+    } else if (swipeOffset > threshold && canGoPrev) {
+      goPrev();
     }
 
     setSwipeStart(null);
     setSwipeOffset(0);
-  }, [
-    isTouchDevice,
-    swipeStart,
-    swipeOffset,
-    isCommentsOpen,
-    hasSequence,
-    canGoPrev,
-    canGoNext,
-    goPrev,
-    goNext,
-  ]);
+  }, [swipeStart, swipeOffset, isCommentsOpen, hasSequence, canGoPrev, canGoNext, goPrev, goNext]);
 
-  // --- Wheel navigation (desktop scroll-to-next) -------------------
+  // Wheel navigation
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (!hasSequence || isCommentsOpen) return;
+    if (Math.abs(e.deltaX) < 25) return;
+    if (wheelTimeoutRef.current) return;
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
-      if (!hasSequence || isCommentsOpen) return;
+    const goingRight = e.deltaX > 0;
 
-      if (Math.abs(e.deltaY) < 25) return; // more sensitive
+    let navigated = false;
+    if (goingRight && canGoNext) {
+      goNext();
+      navigated = true;
+    } else if (!goingRight && canGoPrev) {
+      goPrev();
+      navigated = true;
+    }
 
-      if (wheelTimeoutRef.current) return;
+    if (!navigated) return;
 
-      try {
-        e.preventDefault();
-        e.stopPropagation();
-      } catch {
-        // ignore
-      }
+    wheelTimeoutRef.current = window.setTimeout(() => {
+      wheelTimeoutRef.current = null;
+    }, 400);
+  }, [hasSequence, isCommentsOpen, canGoNext, canGoPrev, goNext, goPrev]);
 
-      const goingDown = e.deltaY > 0;
-
-      let navigated = false;
-      if (goingDown && canGoNext) {
-        goNext();
-        navigated = true;
-      } else if (!goingDown && canGoPrev) {
-        goPrev();
-        navigated = true;
-      }
-
-      if (!navigated) return;
-
-      wheelTimeoutRef.current = window.setTimeout(() => {
-        wheelTimeoutRef.current = null;
-      }, 500);
-    },
-    [hasSequence, isCommentsOpen, canGoNext, canGoPrev, goNext, goPrev],
-  );
-
-  // Keyboard navigation (vertical, only when comments closed)
+  // Keyboard navigation (left/right)
   useEffect(() => {
     if (!hasSequence || !isOpen || isCommentsOpen) return;
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp") {
+      if (e.key === "ArrowLeft") {
         e.preventDefault();
         goPrev();
-      } else if (e.key === "ArrowDown") {
+      } else if (e.key === "ArrowRight") {
         e.preventDefault();
         goNext();
       }
@@ -355,7 +396,7 @@ export function FullscreenPostViewer({
             .from("event_posts")
             .update({ deleted_at: new Date().toISOString() })
             .eq("id", post.id)
-            .eq("author_user_id", user.id),
+            .eq("author_user_id", user.id)
       );
       if (error) throw error;
       onPostDelete?.(post.id);
@@ -377,457 +418,332 @@ export function FullscreenPostViewer({
 
   const copyPostLink = useCallback(() => {
     const id = post?.id ?? activePostId;
-    if (!id) return;
+    if (!id || !activeEventId) return;
     const url = `${window.location.origin}${routes.event(
-      eventId,
+      activeEventId
     )}?tab=posts&post=${id}`;
     navigator.clipboard.writeText(url).then(() =>
-      toast({ title: "Link copied", duration: 2000 }),
+      toast({ title: "Link copied", duration: 2000 })
     );
-  }, [post?.id, activePostId, eventId]);
+  }, [post?.id, activePostId, activeEventId]);
 
-  const VIDEO_PLACEHOLDER = "/images/video-placeholder.jpg"; // fallback thumbnail
+  // 🎬 Smart renderMedia: VideoMedia for videos, big image for photos
+  const renderMedia = useCallback((postData: Post | null) => {
+    if (!postData?.media_urls || postData.media_urls.length === 0) return null;
 
-  const renderMedia = useCallback((urls: string[]) => {
-    if (!urls?.length) return null;
-
-    const validUrls = urls.filter(
-      (url) => url && typeof url === "string" && url.trim().length > 0,
+    const urls = postData.media_urls.filter(
+      (u) => typeof u === "string" && u.trim().length
     );
-    if (!validUrls.length) return null;
+    if (!urls.length) return null;
 
+    const firstUrl = urls[0];
+    const isVideo = isVideoUrl(firstUrl);
+
+    // Tall phone-like frame that uses most of the height
+    const mediaFrameCls =
+      "relative h-full max-h-[calc(100vh-180px)] aspect-[9/16] max-w-[min(420px,100vw-32px)] sm:max-w-[480px] overflow-hidden rounded-3xl bg-black shadow-2xl";
+
+    // 🎥 VIDEO → use VideoMedia player
+    if (isVideo) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-black">
+          <div className={mediaFrameCls}>
+            <VideoMedia
+              url={firstUrl}
+              post={{
+                id: postData.id,
+                event_id: activeEventId,  // Per-post eventId for correct analytics
+                author_user_id: postData.author_user_id,
+                user_profiles: { display_name: postData.author_name },
+                text: postData.text,
+              }}
+              visible={true}
+              globalSoundEnabled={true}
+              hideCaption={true}
+              hideControls={true}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 🖼 IMAGE → big centered frame
     return (
       <div className="flex h-full w-full items-center justify-center bg-black">
-        {validUrls.map((raw, idx) => {
-          const processedUrl = raw.startsWith("mux:")
-            ? raw.replace("mux:", "https://stream.mux.com/") + ".m3u8"
-            : raw;
-
-          const isMuxSource =
-            processedUrl.includes("stream.mux.com") &&
-            processedUrl.includes(".m3u8");
-
-          const isVideoFile = /\.(mp4|mov|webm)$/i.test(processedUrl);
-          const isImageFile = isImageUrl(processedUrl);
-
-          const wrapperCls =
-            "relative flex h-full w-full items-center justify-center";
-          const mediaCls = "relative mx-auto w-full max-w-3xl aspect-video";
-
-          // --- MUX HLS ---
-          if (isMuxSource || raw.startsWith("mux:")) {
-            const playbackId = raw.startsWith("mux:")
-              ? raw.replace("mux:", "")
-              : processedUrl.split("/").pop()?.replace(".m3u8", "") || "";
-
-            const hlsUrl = `https://stream.mux.com/${playbackId}.m3u8`;
-            const posterUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?time=1&width=800&fit_mode=smartcrop`;
-
-            return (
-              <div key={idx} className={wrapperCls}>
-                <div className={mediaCls}>
-                  <video
-                    className="h-full w-full object-contain"
-                    controls
-                    playsInline
-                    muted
-                    preload="metadata"
-                    poster={posterUrl}
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    }}
-                  >
-                    <source src={hlsUrl} type="application/x-mpegURL" />
-                    <source
-                      src={`https://stream.mux.com/${playbackId}/medium.mp4`}
-                      type="video/mp4"
-                    />
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-              </div>
-            );
-          }
-
-          // --- File video (mp4/mov/webm) ---
-          if (isVideoFile) {
-            // If you generate thumbnails server-side, replace this with
-            // your own mapping (e.g. store thumbnail_url next to media url).
-            const guessedThumb = processedUrl.replace(
-              /\.(mp4|mov|webm)$/i,
-              ".jpg",
-            );
-
-            const posterUrl = guessedThumb || VIDEO_PLACEHOLDER;
-
-            return (
-              <div key={idx} className={wrapperCls}>
-                <div className={mediaCls}>
-                  <video
-                    className="h-full w-full object-contain"
-                    controls
-                    playsInline
-                    muted
-                    preload="metadata"
-                    src={processedUrl}
-                    poster={posterUrl}
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    }}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-              </div>
-            );
-          }
-
-          // --- Image ---
-          if (isImageFile) {
-            return (
-              <div key={idx} className={wrapperCls}>
-                <div className={mediaCls}>
-                  <img
-                    src={processedUrl}
-                    alt="Post media"
-                    className="h-full w-full object-contain"
-                    onError={(e) => {
-                      console.error(
-                        "[FullscreenPostViewer] Failed to load image:",
-                        processedUrl,
-                      );
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          }
-
-          return null;
-        })}
+        <div className="relative h-full max-h-[calc(100vh-180px)] max-w-[min(900px,100vw-32px)] overflow-hidden rounded-3xl bg-black shadow-2xl">
+          <img
+            src={firstUrl}
+            alt="Post media"
+            className="h-full w-full object-contain"
+            onError={(e) => {
+              console.error("[FullscreenPostViewer] Failed to load image:", firstUrl);
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        </div>
       </div>
     );
-  }, []);
+  }, [activeEventId]);
 
-  const dialogKey = `fullscreen-post-viewer-${eventId}-${
-    activePostId ?? "loading"
-  }`;
-  const canComment = !!profile?.username;
-
+  // No key on Dialog - prevents unmount/remount on post change which would reset navigation state
   return (
-    <Dialog key={dialogKey} open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogPortal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[9998] bg-black data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
 
         <DialogPrimitive.Content
-          className="fixed inset-0 z-[9999] m-0 flex h-[100vh] w-full flex-col overflow-hidden bg-black p-0
-                     data-[state=open]:animate-in data-[state=closed]:animate-out
-                     data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          className="fixed inset-0 z-[9999] flex flex-col bg-black
+            data-[state=open]:animate-in data-[state=closed]:animate-out
+            data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
         >
           <VisuallyHidden>
             <DialogTitle>
-              {post
-                ? `Post by ${post.author_name || "user"}`
-                : "Post viewer"}
+              {(displayedPost || post) ? `Post by ${(displayedPost || post)?.author_name || "user"}` : "Post viewer"}
             </DialogTitle>
             <DialogDescription>
-              {post
-                ? `View and interact with post from ${post.author_name || "user"}`
+              {(displayedPost || post)
+                ? `View and interact with a post from ${(displayedPost || post)?.author_name || "user"}`
                 : "Fullscreen post viewer"}
             </DialogDescription>
           </VisuallyHidden>
 
-          {/* Centered container */}
-          <div className="relative mx-auto flex h-full w-full max-w-full flex-col sm:max-w-6xl">
-            {/* Top overlay header */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
-              <div
-                className="
-                  pointer-events-auto mx-auto flex max-w-6xl items-center justify-between gap-2
-                  px-3 sm:px-4 py-3
-                  bg-gradient-to-b from-black/80 via-black/40 to-transparent
-                  backdrop-blur-sm
-                  animate-in fade-in slide-in-from-top-4 duration-200
-                "
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 rounded-full bg-black/40 text-white hover:bg-black/60"
-                    onClick={onClose}
-                    aria-label="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-
-                  {post && (
-                    <div className="flex min-w-0 items-center gap-2">
+          {/* Header - floating over content */}
+          <div className="absolute inset-x-0 top-0 z-30 pointer-events-none">
+            <div 
+              className="pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-b from-black/60 via-black/30 to-transparent transition-opacity duration-100"
+              style={{ opacity: isTransitioning ? 0.5 : 1 }}
+            >
+              {/* Author info - left side (use displayedPost for stable UI) */}
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                {(displayedPost || post) && (
+                  <>
+                    <div className="flex min-w-0 flex-col">
                       <button
                         type="button"
                         onClick={() =>
                           window.open(
-                            routes.user(post.author_user_id),
+                            routes.user((displayedPost || post)!.author_user_id),
                             "_blank",
-                            "noopener,noreferrer",
+                            "noopener,noreferrer"
                           )
                         }
-                        className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/60"
-                        aria-label={`Open ${post.author_name || "user"} profile in new tab`}
+                        className="truncate text-left text-sm font-semibold text-white hover:text-white/80"
+                        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}
                       >
-                        <Avatar className="h-8 w-8 ring-2 ring-white/40">
-                          <AvatarImage src={post.author_avatar || undefined} />
-                          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-xs">
-                            {post.author_name?.charAt(0) || "A"}
-                          </AvatarFallback>
-                        </Avatar>
+                        {(displayedPost || post)?.author_name}
                       </button>
-
-                      <div className="flex min-w-0 flex-col">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            window.open(
-                              routes.user(post.author_user_id),
-                              "_blank",
-                              "noopener,noreferrer",
-                            )
-                          }
-                          className="truncate text-left text-[13px] font-semibold text-white hover:text-primary-foreground/80"
-                          title="View profile"
-                        >
-                          {post.author_name}
-                        </button>
-                        <span className="text-[11px] text-white/70">
-                          {formatDistanceToNow(new Date(post.created_at), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </div>
-
-                      {post.author_badge && (
-                        <Badge
-                          variant="neutral"
-                          className="border-white/50 bg-white/10 text-[10px] text-white/90"
-                        >
-                          {post.author_badge}
-                        </Badge>
-                      )}
+                      <span 
+                        className="text-[10px] text-white/70"
+                        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
+                      >
+                        {formatDistanceToNow(new Date((displayedPost || post)!.created_at), {
+                          addSuffix: true,
+                        })}
+                      </span>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex items-center gap-1">
-                  {hasSequence && currentIndex !== null && (
-                    <span className="min-w-[52px] text-center text-[11px] text-white/80">
-                      {currentIndex + 1}/{totalPosts}
-                    </span>
-                  )}
-
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 rounded-full bg-black/40 text-white hover:bg-black/60"
-                    onClick={copyPostLink}
-                    aria-label="Copy post link"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                    {(displayedPost || post)?.author_badge && (
+                      <Badge
+                        variant="neutral"
+                        className="shrink-0 border-white/20 bg-white/10 text-[9px] font-medium text-white/90 backdrop-blur-sm"
+                      >
+                        {(displayedPost || post)?.author_badge}
+                      </Badge>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
 
-            {/* Media area: swipe + wheel */}
+              {/* Close button - right side, subtle */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Media area: swipe, wheel & click-to-nav */}
+          <div
+            className="relative flex-1 select-none overflow-hidden bg-black"
+            onTouchStart={handleSwipeStart}
+            onTouchMove={handleSwipeMove}
+            onTouchEnd={handleSwipeEnd}
+            onWheel={handleWheel}
+          >
+
             <div
-              className="relative flex-1 select-none overflow-hidden bg-black touch-none"
-              onTouchStart={handleSwipeStart}
-              onTouchMove={handleSwipeMove}
-              onTouchEnd={handleSwipeEnd}
-              onWheel={handleWheel}
+              className="flex h-full w-full items-center justify-center px-2 pb-24 pt-16 sm:px-6"
+              style={{
+                transform: swipeOffset ? `translateX(${swipeOffset}px)` : undefined,
+              }}
             >
-              <div
-                className="flex h-full w-full items-center justify-center px-2 pb-2 pt-12 transition-transform duration-150 ease-out sm:px-4 sm:pb-4 sm:pt-14"
+              {/* Media container with cross-fade transition */}
+              <div 
+                className="relative flex h-full w-full items-center justify-center transition-opacity duration-100 ease-out"
                 style={{
-                  transform: swipeOffset
-                    ? `translateY(${swipeOffset}px)`
-                    : undefined,
-                  opacity: swipeOffset
-                    ? Math.max(0.6, 1 - Math.abs(swipeOffset) / 250)
-                    : undefined,
+                  opacity: isTransitioning ? 0.3 : (swipeOffset ? Math.max(0.5, 1 - Math.abs(swipeOffset) / 250) : 1),
                 }}
               >
-                <div className="relative flex h-full w-full max-h-[80vh] items-center justify-center">
-                  {loading || (activePostId && !post) ? (
-                    <div className="flex flex-col items-center gap-2 text-sm text-white/70">
-                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
-                      <span>Loading post…</span>
-                    </div>
-                  ) : post ? (
-                    (() => {
-                      const hasMedia =
-                        post.media_urls &&
-                        Array.isArray(post.media_urls) &&
-                        post.media_urls.length > 0;
+                {/* Use displayedPost for stable rendering during transitions */}
+                {displayedPost ? (
+                  (() => {
+                    const hasMedia =
+                      displayedPost.media_urls &&
+                      Array.isArray(displayedPost.media_urls) &&
+                      displayedPost.media_urls.length > 0;
 
-                      if (hasMedia) {
-                        return renderMedia(post.media_urls);
-                      }
-                      return (
-                        <div className="text-center text-muted-foreground">
-                          <p className="text-sm">No media for this post.</p>
-                          {post.text && (
-                            <p className="mx-auto mt-2 max-w-xs text-xs text-muted-foreground/80">
-                              {post.text}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })()
-                  ) : activePostId ? (
-                    <div className="flex flex-col items-center gap-2 text-sm text-white/70">
-                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
-                      <span>Loading post…</span>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-white/70">
-                      No post selected
-                    </div>
-                  )}
-                </div>
-              </div>
+                    if (hasMedia) return renderMedia(displayedPost);
 
-              {/* Swipe indicator */}
-              {hasSequence && swipeOffset !== 0 && (
-                <div className="pointer-events-none absolute left-1/2 top-1/2 z-40 -translate-x-1/2 -translate-y-1/2">
-                  <div className="flex flex-col items-center gap-2 text-white/80">
-                    {swipeOffset > 0 && canGoPrev && (
-                      <>
-                        <ChevronLeft className="h-6 w-6 rotate-90" />
-                        <span className="text-sm font-medium">Previous</span>
-                      </>
-                    )}
-                    {swipeOffset < 0 && canGoNext && (
-                      <>
-                        <ChevronRight className="h-6 w-6 rotate-90" />
-                        <span className="text-sm font-medium">Next</span>
-                      </>
-                    )}
+                    return (
+                      <div className="text-center text-muted-foreground">
+                        <p className="text-sm">No media for this post.</p>
+                        {displayedPost.text && (
+                          <p className="mx-auto mt-2 max-w-xs text-xs text-muted-foreground/80">
+                            {displayedPost.text}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : loading ? (
+                  /* Show subtle loading only on first load */
+                  <div className="flex items-center gap-2 text-sm text-white/50">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
                   </div>
-                </div>
-              )}
+                ) : null}
+              </div>
             </div>
 
-            {/* Bottom meta bar */}
-            {post && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
-                <div
-                  className="
-                    pointer-events-auto mx-auto flex max-w-6xl flex-col gap-2
-                    px-4 pb-4 pt-3
-                    border-t border-white/10
-                    bg-gradient-to-t from-black/85 via-black/60 to-transparent
-                    backdrop-blur-sm
-                    animate-in fade-in slide-in-from-bottom-4 duration-200
-                  "
-                  style={{
-                    paddingBottom:
-                      "calc(1rem + env(safe-area-inset-bottom, 0px))",
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!post || !user) return;
-                          const { handlePostLike } =
-                            await import("@/utils/interactions");
-                          const result = await handlePostLike(
-                            post.id,
-                            post.is_liked,
-                          );
-                          if (result.success) {
-                            setPost((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    is_liked:
-                                      result.newLikedState ?? false,
-                                    likes_count:
-                                      result.newLikeCount ??
-                                      prev.likes_count,
-                                  }
-                                : null,
-                            );
-                          }
-                        }}
-                        className={`inline-flex items-center gap-1 transition-colors ${
-                          post.is_liked
-                            ? "text-red-500 hover:text-red-400"
-                            : "text-white/90 hover:text-white"
-                        }`}
-                      >
-                        <Heart
-                          className={`h-5 w-5 ${
-                            post.is_liked ? "fill-current" : ""
-                          }`}
-                        />
-                        {post.likes_count > 0 && (
-                          <span className="text-xs">
-                            {post.likes_count}
-                          </span>
-                        )}
-                      </button>
 
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-white/90 transition-colors hover:text-white"
-                        onClick={() => setIsCommentsOpen(true)}
-                      >
-                        <MessageCircle className="h-5 w-5" />
-                        <span className="text-xs">
-                          {post.comment_count || 0}
-                        </span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {user && post.author_user_id === user.id && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-3 text-xs text-white/80 hover:text-destructive"
-                          onClick={handleDeletePost}
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {post.text && (
-                    <div className="max-h-[40px] overflow-hidden">
-                      <p className="line-clamp-2 whitespace-pre-wrap text-xs text-white/90">
-                        {post.text}
-                      </p>
-                    </div>
+            {/* Swipe indicator (mobile) */}
+            {hasSequence && swipeOffset !== 0 && (
+              <div className="pointer-events-none absolute left-1/2 top-1/2 z-40 -translate-x-1/2 -translate-y-1/2">
+                <div className="flex items-center gap-3 rounded-full bg-black/70 px-4 py-2 text-white/90 backdrop-blur-md">
+                  {swipeOffset > 0 && canGoPrev && (
+                    <>
+                      <ChevronLeft className="h-5 w-5" />
+                      <span className="text-sm font-medium">Previous</span>
+                    </>
+                  )}
+                  {swipeOffset < 0 && canGoNext && (
+                    <>
+                      <span className="text-sm font-medium">Next</span>
+                      <ChevronRight className="h-5 w-5" />
+                    </>
                   )}
                 </div>
               </div>
             )}
           </div>
 
+          {/* Bottom actions bar - floating */}
+          {(displayedPost || post) && (
+            <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
+              <div
+                className="pointer-events-auto flex flex-col gap-2 px-4 py-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-100"
+                style={{ 
+                  paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+                  opacity: isTransitioning ? 0.5 : 1,
+                }}
+              >
+                {/* Caption - expandable (use displayedPost for stable UI) */}
+                {(displayedPost || post)?.text && (
+                  <button
+                    type="button"
+                    onClick={() => setCaptionExpanded(!captionExpanded)}
+                    className="text-left"
+                  >
+                    <p className={`text-[13px] leading-relaxed text-white/90 ${
+                      captionExpanded ? '' : 'line-clamp-2'
+                    }`}>
+                      {(displayedPost || post)?.text}
+                    </p>
+                    {((displayedPost || post)?.text?.length ?? 0) > 100 && (
+                      <span className="text-[11px] text-white/50 mt-0.5">
+                        {captionExpanded ? 'Show less' : 'More'}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {/* Actions row */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {/* Like button - compact (use post for interactions, displayedPost for display) */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!post || !user) return;
+                        const { handlePostLike } = await import("@/utils/interactions");
+                        const result = await handlePostLike(post.id, post.is_liked);
+                        if (result.success) {
+                          setPost((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  is_liked: result.newLikedState ?? false,
+                                  likes_count: result.newLikeCount ?? prev.likes_count,
+                                }
+                              : null
+                          );
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition-all active:scale-95 ${
+                        (post || displayedPost)?.is_liked
+                          ? "bg-red-500/20 text-red-400"
+                          : "bg-white/10 text-white/90 hover:bg-white/15"
+                      }`}
+                    >
+                      <Heart className={`h-4 w-4 ${(post || displayedPost)?.is_liked ? "fill-current" : ""}`} />
+                      {((post || displayedPost)?.likes_count ?? 0) > 0 && <span>{(post || displayedPost)?.likes_count}</span>}
+                    </button>
+
+                    {/* Comment button - compact */}
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white/90 transition-all hover:bg-white/15 active:scale-95"
+                      onClick={() => setIsCommentsOpen(true)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span>{(post || displayedPost)?.comment_count || 0}</span>
+                    </button>
+
+                    {/* Share button - compact */}
+                    <button
+                      type="button"
+                      className="flex items-center justify-center rounded-full bg-white/10 p-1.5 text-white/90 transition-all hover:bg-white/15 active:scale-95"
+                      onClick={copyPostLink}
+                      aria-label="Share"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Delete button - only for author */}
+                  {user && (post || displayedPost)?.author_user_id === user.id && (
+                    <button
+                      type="button"
+                      onClick={handleDeletePost}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition-all hover:bg-red-500/20 hover:text-red-400 active:scale-95"
+                      aria-label="Delete post"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Comments sheet */}
           <CommentsSheet
             open={isCommentsOpen}
             onOpenChange={setIsCommentsOpen}
-            eventId={eventId}
+            eventId={activeEventId}  // Per-post eventId
             post={post}
             setPost={setPost}
             user={user}

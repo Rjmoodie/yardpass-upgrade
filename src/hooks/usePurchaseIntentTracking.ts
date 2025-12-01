@@ -48,22 +48,22 @@ export function useTicketDetailTracking() {
       const sessionId = getSessionId();
       const { data: { user } } = await supabase.auth.getUser();
       
-      // ✅ Use insert and silently ignore duplicate key errors (deduplication working as intended)
-      const { error } = await supabase
-        .from('ticket_detail_views')
-        .insert({
-          event_id: eventId,
-          user_id: user?.id || null,
-          session_id: sessionId,
-          tier_viewed: tierViewed || null,
-          hour_bucket: new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString(), // Current hour
-          viewed_at: new Date().toISOString(),
-        });
+      // ✅ Use RPC function with ON CONFLICT DO NOTHING to prevent 409 errors entirely
+      // The function handles duplicates at the database level, so no HTTP error is raised
+      const { data, error } = await supabase.rpc('track_ticket_detail_view', {
+        p_event_id: eventId,
+        p_user_id: user?.id || null,
+        p_session_id: sessionId,
+        p_tier_viewed: tierViewed || null,
+      });
       
-      // Silently ignore 23505 (duplicate key) - that's deduplication working correctly
-      if (error && error.code !== '23505') {
+      // If error occurs, it's a real error (not a duplicate)
+      if (error) {
+        // Only log actual errors (RPC function handles duplicates silently)
         console.error('[Purchase Intent] Failed to track ticket view:', error);
       }
+      // If data is NULL, it means duplicate (conflict) - this is expected and silent
+      // If data is UUID, it means successfully inserted - also expected
     } catch (err) {
       // Non-blocking: don't break UX if tracking fails
       // Silently fail - this is just analytics

@@ -18,8 +18,15 @@ export function PurchaseSuccessHandler() {
   const { user } = useAuth();
   const { update: updateGuestSession } = useGuestTicketSession();
 
+  // ✅ Support both Checkout Session and Payment Intent
   const sessionId = searchParams.get('session_id') ?? '';
+  const paymentIntentId = searchParams.get('payment_intent') ?? '';
   const eventId = searchParams.get('event_id') ?? searchParams.get('eventId') ?? '';
+  
+  // Use payment_intent if available, otherwise fall back to session_id
+  const identifier = paymentIntentId || sessionId;
+  const identifierType = paymentIntentId ? 'payment_intent' : 'session_id';
+  
   const redirectPath = user ? '/tickets' : eventId ? `/e/${eventId}/tickets` : '/tickets';
   const successDescription = user
     ? 'Your tickets are ready! Redirecting...'
@@ -31,8 +38,9 @@ export function PurchaseSuccessHandler() {
   const [attempts, setAttempts] = useState(0);
   const [ensureStatus, setEnsureStatus] = useState<string>('');
   
-  const triedKey = `ensured:${sessionId}`;
+  const triedKey = `ensured:${identifier}`;
   const inFlightRef = useRef(false);
+  const toastShownRef = useRef(false);
 
   const backoffMs = (n: number) => Math.min(15000, 500 * Math.pow(1.5, n)); // 0.5s -> 15s
 
@@ -56,7 +64,7 @@ export function PurchaseSuccessHandler() {
 
   // Main polling logic with backoff
   useEffect(() => {
-    if (!sessionId || inFlightRef.current || localStorage.getItem(triedKey) === 'done') return;
+    if (!identifier || inFlightRef.current || localStorage.getItem(triedKey) === 'done') return;
 
     const tick = async () => {
       inFlightRef.current = true;
@@ -71,13 +79,30 @@ export function PurchaseSuccessHandler() {
         
         // Clear checkout session data
         localStorage.removeItem('checkoutSessionId');
+        localStorage.removeItem('paymentIntentId');
+        
+        // If using Payment Intent, trigger process-payment manually (webhook may be delayed)
+        // This is a best-effort call - the webhook handles it too, so 400 errors are expected if already processed
+        if (identifierType === 'payment_intent') {
+          try {
+            await supabase.functions.invoke('process-payment', {
+              body: { paymentIntentId: identifier },
+            });
+          } catch (processError) {
+            // Expected if webhook already processed it - ignore silently
+          }
+        }
         
         await forceRefreshTickets();
         
-        toast({
-          title: 'Payment Successful!',
-          description: successDescription,
-        });
+        // Only show toast once (React Strict Mode can cause double execution)
+        if (!toastShownRef.current) {
+          toastShownRef.current = true;
+          toast({
+            title: 'Payment Successful!',
+            description: successDescription,
+          });
+        }
         
         setRedirecting(true);
         setTimeout(() => navigate(redirectPath, { replace: true }), 1500);
@@ -92,11 +117,11 @@ export function PurchaseSuccessHandler() {
     };
 
     tick();
-  }, [sessionId, attempts, toast, navigate, forceRefreshTickets, triedKey]);
+  }, [identifier, identifierType, attempts, toast, navigate, forceRefreshTickets, triedKey, supabase]);
 
   // Invalid session guard
   useEffect(() => {
-    if (!sessionId) {
+    if (!identifier) {
       toast({
         title: 'Invalid Session',
         description: 'No session ID found. Redirecting to home...',
@@ -104,7 +129,7 @@ export function PurchaseSuccessHandler() {
       });
       setTimeout(() => navigate('/', { replace: true }), 2000);
     }
-  }, [sessionId, toast, navigate]);
+  }, [identifier, toast, navigate]);
 
   // Loading state
   if (ensureStatus === 'pending' || ensureStatus === 'busy' || !ensureStatus) {

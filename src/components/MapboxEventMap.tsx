@@ -55,13 +55,12 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     fetchMapboxToken();
   }, []);
 
-  // Debug incoming props and validate coordinates
+  // Validate coordinates
   useEffect(() => {
     if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
       console.warn('[MapboxEventMap] Invalid coords', { lat, lng });
     }
-    console.debug('[MapboxEventMap] props', { lat, lng, venue, address, city, country });
-  }, [lat, lng, venue, address, city, country]);
+  }, [lat, lng]);
 
   // Detect and respond to theme changes
   useEffect(() => {
@@ -137,13 +136,13 @@ const MapboxEventMap: React.FC<MapboxEventMapProps> = ({
     map.current.on('load', () => {
       setMapLoaded(true);
       
-      // Add subtle 3D buildings if available
+      // Add subtle 3D buildings if available (silently skip if not supported)
       try {
         if (map.current?.getLayer('building')) {
           map.current.setPaintProperty('building', 'fill-extrusion-opacity', 0.3);
         }
-      } catch (error) {
-        console.warn('Could not set building properties:', error);
+      } catch {
+        // Layer may not support this property - silent fail
       }
     });
 

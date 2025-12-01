@@ -511,13 +511,39 @@ const handler = withCORS(async (req: Request) => {
     const { data: rankedData, error: rankedError } =
       await supabase.rpc("get_home_feed_ranked", rpcArgs);
 
+    // Debug: Log what the RPC returned
+    console.log('[home-feed] get_home_feed_ranked result:', {
+      returnedCount: rankedData?.length ?? 0,
+      hasError: !!rankedError,
+      errorMessage: rankedError?.message ?? null,
+      rpcArgs: {
+        p_user_id: viewerId || 'null',
+        p_limit: rpcArgs.p_limit,
+        p_cursor_item_id: rpcArgs.p_cursor_item_id || null,
+        p_categories: rpcArgs.p_categories || null,
+        p_user_lat: rpcArgs.p_user_lat || null,
+        p_user_lng: rpcArgs.p_user_lng || null,
+        p_max_distance_miles: rpcArgs.p_max_distance_miles || null,
+        p_date_filters: rpcArgs.p_date_filters || null,
+      },
+      firstFewItems: rankedData?.slice(0, 3).map((r: any) => ({
+        item_type: r.item_type,
+        item_id: r.item_id,
+        event_id: r.event_id,
+        score: r.score
+      })) || []
+    });
+
     if (!rankedError && Array.isArray(rankedData) && rankedData.length > 0) {
       ranked = rankedData;
     } else {
       if (rankedError) {
         console.warn("get_home_feed_ranked error => fallback:", rankedError.message);
+      } else if (rankedData && rankedData.length === 0) {
+        console.warn("[home-feed] get_home_feed_ranked returned empty array, using fallback");
       }
       ranked = await fetchFallbackRows({ supabase, limit: (limit as number) + 1, cursor, viewerId });
+      console.log('[home-feed] Fallback rows fetched:', ranked.length);
     }
     
     // 🎯 PERF-001: Calculate query duration
@@ -701,7 +727,7 @@ async function expandRows({
     `)
     .in("id", eventIds.length ? eventIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  // Query event_posts with ticket_tier badge info
+  // Query event_posts with ticket_tier badge info and post_as fields (if columns exist)
   const postsQ = postIds.length
     ? supabase
         .from("event_posts")
@@ -741,6 +767,24 @@ async function expandRows({
   const [{ data: events, error: eventsError }, postsRes, sponsorsRes, likesRes, ticketsRes] =
     await Promise.all([eventsQ, postsQ, sponsorsQ, likesQ, ticketsQ]);
   
+  // Debug: Check for post_as fields in query response
+  if (postsRes?.data && postsRes.data.length > 0) {
+    const samplePost = postsRes.data[0];
+    const hasPostAsFields = 'post_as_context_type' in samplePost || 'post_as_context_id' in samplePost;
+    const postsWithOrg = postsRes.data.filter((p: any) => p.post_as_context_type === 'organization');
+    
+    if (postsWithOrg.length > 0 || !hasPostAsFields) {
+      console.log('[home-feed] Post query result check:', {
+        totalPosts: postsRes.data.length,
+        postsWithOrg: postsWithOrg.length,
+        hasPostAsFields,
+        samplePostFields: Object.keys(samplePost),
+        samplePostAsType: samplePost.post_as_context_type,
+        samplePostAsId: samplePost.post_as_context_id
+      });
+    }
+  }
+  
   // Log for debugging guest feed issues
   if (!viewerId) {
     console.log('[home-feed] Guest feed expansion:', {
@@ -777,7 +821,46 @@ async function expandRows({
     ? await supabase.from("user_profiles").select("user_id, display_name, username, photo_url, social_links").in("user_id", authorIds)
     : { data: [] as any[] };
 
-  // Fetch organizer names for events (created_by users)
+  // Fetch organization memberships for organization-owned events (to determine organizer status)
+  const orgEventIds = (events ?? []).filter((e: any) => e.owner_context_type === 'organization' && e.owner_context_id).map((e: any) => e.owner_context_id);
+  const orgIds = dedupe(orgEventIds);
+  const orgMembersMap = new Map<string, Set<string>>();
+  
+  if (orgIds.length > 0) {
+    const { data: memberships } = await supabase
+      .from('org_memberships')
+      .select('org_id, user_id')
+      .in('org_id', orgIds);
+    
+    if (memberships) {
+      memberships.forEach((m: any) => {
+        if (!orgMembersMap.has(m.org_id)) {
+          orgMembersMap.set(m.org_id, new Set());
+        }
+        orgMembersMap.get(m.org_id)!.add(m.user_id);
+      });
+    }
+  }
+
+  // Fetch organization names for organization-owned events
+  const { data: organizations } = orgIds.length
+    ? await supabase.from("organizations").select("id, name, logo_url").in("id", orgIds)
+    : { data: [] as any[] };
+  const orgNamesMap = new Map((organizations ?? []).map((o: any) => [o.id, o.name]));
+  const orgLogosMap = new Map((organizations ?? []).map((o: any) => [o.id, o.logo_url]));
+
+  // Fetch organization details for posts posted "as" organization (if post_as fields exist)
+  const postAsOrgIds = dedupe((posts ?? [])
+    .filter((p: any) => p.post_as_context_type === 'organization' && p.post_as_context_id)
+    .map((p: any) => p.post_as_context_id));
+  
+  const { data: postAsOrgs } = postAsOrgIds.length
+    ? await supabase.from("organizations").select("id, name, logo_url").in("id", postAsOrgIds)
+    : { data: [] as any[] };
+  const postAsOrgNamesMap = new Map((postAsOrgs ?? []).map((o: any) => [o.id, o.name]));
+  const postAsOrgLogosMap = new Map((postAsOrgs ?? []).map((o: any) => [o.id, o.logo_url]));
+
+  // Fetch organizer names for individual-owned events (created_by users)
   const organizerUserIds = dedupe((events ?? []).filter((e: any) => e.owner_context_type === 'individual').map((e: any) => e.created_by).filter(Boolean));
   const { data: organizerProfiles } = organizerUserIds.length
     ? await supabase.from("user_profiles").select("user_id, display_name").in("user_id", organizerUserIds)
@@ -819,6 +902,31 @@ async function expandRows({
   const includeViewerFields = !!viewerId;
   const connectionSpeed = detectConnectionSpeed(req);
 
+  // Helper function to determine if a post author is an organizer
+  const isPostAuthorOrganizer = (authorUserId: string | null, event: any): boolean => {
+    if (!authorUserId || !event) return false;
+    
+    // 1. Check if author is the event creator (always organizer)
+    if (event.created_by && authorUserId === event.created_by) {
+      return true;
+    }
+    
+    // 2. For individual events, check if author is the owner
+    if (event.owner_context_type === 'individual' && event.owner_context_id && authorUserId === event.owner_context_id) {
+      return true;
+    }
+    
+    // 3. For organization events, check if author is a member of the organization
+    if (event.owner_context_type === 'organization' && event.owner_context_id) {
+      const orgMembers = orgMembersMap.get(event.owner_context_id);
+      if (orgMembers && orgMembers.has(authorUserId)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   const expandedRows = rows
     .map((row) => {
       const ev = eMap.get(row.event_id);
@@ -844,9 +952,10 @@ async function expandRows({
       const primarySponsor = sponsorEntry?.primary ?? null;
       const sponsorList = sponsorEntry?.sponsors ?? null;
 
+      // Determine organizer name and ID based on ownership structure
       const organizerName =
         ev?.owner_context_type === "organization"
-          ? "Organizer" // TODO: Fetch organization names
+          ? orgNamesMap.get(ev?.owner_context_id) ?? "Organizer"
           : organizerNamesMap.get(ev?.created_by) ?? "Organizer";
       const organizerId =
         ev?.owner_context_type === "organization" ? ev?.owner_context_id ?? null : ev?.created_by ?? null;
@@ -898,6 +1007,20 @@ async function expandRows({
     // ✅ Extract badge from ticket_tiers join
     const badgeLabel = post.ticket_tiers?.badge_label ?? null;
 
+    // Determine if post author is an organizer based on ownership structure
+    const authorIsOrganizer = isPostAuthorOrganizer(post.author_user_id, ev);
+
+    // Determine display author (org if post_as_context_type is 'organization', otherwise user)
+    // Handle case where post_as columns might not exist yet (backwards compatible)
+    const postAsOrgId = (post as any).post_as_context_type === 'organization' ? (post as any).post_as_context_id : null;
+    const displayAuthorName = postAsOrgId 
+      ? (postAsOrgNamesMap.get(postAsOrgId) ?? authorNamesMap.get(post.author_user_id) ?? null)
+      : (authorNamesMap.get(post.author_user_id) ?? null);
+    const displayAuthorPhoto = postAsOrgId
+      ? (postAsOrgLogosMap.get(postAsOrgId) ?? authorPhotosMap.get(post.author_user_id) ?? null)
+      : (authorPhotosMap.get(post.author_user_id) ?? null);
+    const displayAuthorBadge = postAsOrgId ? 'ORGANIZATION' : badgeLabel;
+
     return {
       item_type: "post",
       sort_ts: sortTs,
@@ -913,11 +1036,17 @@ async function expandRows({
       event_owner_context_type: ev?.owner_context_type ?? "individual",
       event_location: location,
       author_id: post.author_user_id ?? null,
-      author_name: authorNamesMap.get(post.author_user_id) ?? null,
-      author_username: authorUsernamesMap.get(post.author_user_id) ?? null,
-      author_photo: authorPhotosMap.get(post.author_user_id) ?? null,
-      author_badge: badgeLabel,
-      author_social_links: authorLinksMap.get(post.author_user_id) ?? null,
+      author_name: displayAuthorName,
+      author_username: postAsOrgId ? null : (authorUsernamesMap.get(post.author_user_id) ?? null),
+      author_photo: displayAuthorPhoto,
+      author_badge: displayAuthorBadge,
+      author_social_links: postAsOrgId ? null : (authorLinksMap.get(post.author_user_id) ?? null),
+      author_is_organizer: authorIsOrganizer,
+      // Post as organization fields (backwards compatible - may not exist yet)
+      post_as_context_type: (post as any).post_as_context_type || null,
+      post_as_context_id: (post as any).post_as_context_id || null,
+      post_as_org_name: postAsOrgId ? postAsOrgNamesMap.get(postAsOrgId) ?? null : null,
+      post_as_org_logo: postAsOrgId ? postAsOrgLogosMap.get(postAsOrgId) ?? null : null,
       media_urls: mediaUrls,
       content: post.text ?? "",
       created_at: post.created_at ?? null,
@@ -929,7 +1058,7 @@ async function expandRows({
       },
       sponsor: null,
       sponsors: null,
-      is_attending_event: viewerId ? attendingEventIds.has(row.event_id) : false,  // NEW: viewer has tickets for this event
+      is_attending_event: viewerId ? attendingEventIds.has(row.event_id) : false,
     };
     })
     .filter(Boolean);

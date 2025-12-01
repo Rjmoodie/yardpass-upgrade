@@ -187,22 +187,27 @@ const UserPostCardNewDesignComponent = ({
         </div>
       )}
 
-      {/* Bottom Info Card - Glassmorphic - Expandable */}
+      {/* Bottom Info Card - Glassmorphic - Expandable - positioned above navigation bar */}
       <div
         className={`absolute left-3 right-3 z-30 transition-all duration-500 ease-out sm:left-4 sm:right-4 md:left-auto md:right-6 md:max-w-md lg:max-w-lg ${
           isExpanded
-            ? 'bottom-20 top-1/2 sm:bottom-24 md:bottom-28' 
-            : 'bottom-3 sm:bottom-4'
+            ? 'top-1/2' 
+            : ''
         }`}
+        style={{
+          bottom: isExpanded 
+            ? undefined 
+            : 'calc(0.4rem + env(safe-area-inset-bottom, 0px))',
+        }}
       >
-        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-background/70 via-background/60 to-background/70 shadow-2xl backdrop-blur-3xl">
+        <div className="relative flex h-full flex-col rounded-3xl border border-border bg-gradient-to-br from-background/70 via-background/60 to-background/70 shadow-2xl backdrop-blur-3xl">
           {/* Clickable header to expand/collapse */}
           <div
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full p-5 text-left transition-all hover:bg-muted/10 sm:p-6 cursor-pointer"
+            className="flex-shrink-0 w-full px-2 pt-1 pb-4 sm:px-3 sm:pt-1.5 sm:pb-5 md:px-4 md:pt-2 md:pb-6 text-left transition-all hover:bg-muted/10 cursor-pointer"
           >
             {/* Author Info */}
-            <div className="mb-3 flex items-center gap-3">
+            <div className="mb-1.5 sm:mb-2 flex items-center gap-2">
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -213,14 +218,16 @@ const UserPostCardNewDesignComponent = ({
                   }
                   onAuthorClick();
                 }}
-                className="group relative h-12 w-12 overflow-hidden rounded-full border-2 border-border ring-2 ring-primary/20 cursor-pointer transition-all hover:border-primary/60 hover:ring-primary/40"
+                className="group relative h-10 w-10 sm:h-11 sm:w-11 overflow-hidden rounded-full border-2 border-border ring-2 ring-primary/20 cursor-pointer transition-all hover:border-primary/60 hover:ring-primary/40 flex-shrink-0"
               >
                 <ImageWithFallback
                   src={
-                    // For promoted content, show organization logo instead of user photo
-                    item.isPromoted && (item as any).organizer_logo_url
-                      ? (item as any).organizer_logo_url
-                      : item.author_photo || ''
+                    // Priority: post_as_org_logo > promoted organizer logo > user photo
+                    item.post_as_org_logo
+                      ? item.post_as_org_logo
+                      : (item.isPromoted && (item as any).organizer_logo_url
+                        ? (item as any).organizer_logo_url
+                        : item.author_photo || '')
                   }
                   alt={
                     item.isPromoted && item.event_organizer
@@ -244,25 +251,25 @@ const UserPostCardNewDesignComponent = ({
                   }}
                   className="cursor-pointer group"
                 >
-                  <div className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                  <div className="text-sm sm:text-base font-bold text-foreground group-hover:text-primary transition-colors">
                     {/* For promoted content, show organization name instead of user name */}
                     {item.isPromoted && item.event_organizer
                       ? item.event_organizer
                       : item.author_name || 'User'}
                   </div>
-                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  <div className="mt-0.5 sm:mt-1 flex items-center gap-1.5 flex-wrap">
                     {/* Badge Priority: Promotion > Organizer > Ticket Tier */}
                     {item.isPromoted ? (
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                        ✨ Promotion
+                      <div className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/15 to-amber-600/15 border border-amber-400/25 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-600 dark:text-amber-300/90">
+                        ✨ PROMOTED
                       </div>
                     ) : isOrganizer ? (
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-500/30 to-indigo-600/30 border border-blue-400/40 px-2 py-0.5 text-[10px] font-bold text-blue-200">
+                      <div className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-blue-500/15 to-indigo-600/15 border border-blue-400/25 dark:border-blue-500/30 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-blue-700 dark:text-blue-200/70">
                         🎖️ ORGANIZER
                       </div>
                     ) : item.author_badge && (
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500/20 to-brand-600/20 border border-brand-500/30 px-2 py-0.5 text-[10px] font-bold text-brand-400">
-                        <Ticket className="h-3 w-3" />
+                      <div className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-brand-500/15 to-brand-600/15 border border-brand-500/25 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+                        <Ticket className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         {item.author_badge}
                       </div>
                     )}
@@ -273,10 +280,10 @@ const UserPostCardNewDesignComponent = ({
                             e.stopPropagation();
                             onGetTickets?.(item.event_id!);
                           }}
-                          className="inline-flex items-center gap-1 rounded-full bg-primary border border-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-0.5 sm:gap-1 rounded-full bg-primary border-2 border-primary ring-2 ring-primary/30 shadow-md shadow-primary/20 px-4 sm:px-5 py-0.5 text-[9px] sm:text-[10px] font-bold text-primary-foreground hover:bg-primary/90 hover:ring-primary/50 hover:shadow-lg hover:shadow-primary/40 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                           title="Purchase tickets for this event"
                         >
-                          <Ticket className="h-3 w-3" />
+                          <Ticket className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           Get Tickets
                         </button>
                         {/* Custom CTA for promoted content */}
@@ -316,12 +323,17 @@ const UserPostCardNewDesignComponent = ({
                         }
                       }
                     }}
-                    className="mt-1.5 cursor-pointer group/event"
+                    className="mt-1 sm:mt-1.5 cursor-pointer group/event"
                   >
-                    <div className="text-xs font-semibold text-foreground/90 group-hover/event:text-primary transition-colors">
+                    <div className="text-[11px] sm:text-xs font-semibold text-foreground/90 group-hover/event:text-primary transition-colors">
                       📍 {item.event_title}
                     </div>
-                    <div className="mt-1 space-y-0.5">
+                    {item.event_organizer && (
+                      <div className="text-[10px] text-foreground/60">
+                        by {item.event_organizer}
+                      </div>
+                    )}
+                    <div className="mt-0.5 sm:mt-1 space-y-0.5">
                       {item.event_starts_at && (
                         <div className="flex items-center gap-1 text-[10px] text-foreground/70">
                           <Calendar className="h-2.5 w-2.5" />
@@ -341,8 +353,8 @@ const UserPostCardNewDesignComponent = ({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="rounded-full p-2.5 transition-all hover:bg-muted/20 hover:scale-105 active:scale-95">
-                    <MoreVertical className="h-5 w-5 text-foreground/80 hover:text-foreground transition-colors" />
+                  <button className="rounded-full p-1.5 sm:p-2 transition-all hover:bg-muted/20 hover:scale-105 active:scale-95 flex-shrink-0 mt-8 sm:mt-10">
+                    <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5 text-foreground/80 hover:text-foreground transition-colors" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background border-border">
@@ -410,34 +422,29 @@ const UserPostCardNewDesignComponent = ({
             </div>
 
             {/* Caption */}
-            {item.content && (
-              <div className="mt-3">
-                <p className={`text-sm leading-relaxed text-foreground/90 ${isExpanded ? '' : 'line-clamp-2'}`}>
-                  <span className="font-bold text-foreground">{item.author_name}</span>{' '}
-                  <span className="font-normal">{item.content}</span>
-                </p>
-              </div>
-            )}
+            <div className="mt-2 sm:mt-3">
+              <p className={`text-xs sm:text-sm leading-relaxed text-foreground/90 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                <span className="font-bold text-foreground">{item.author_name}</span>{' '}
+                <span className="font-normal">{item.content || ''}</span>
+              </p>
+            </div>
             
-            {/* Engagement Stats */}
-            {!viewCountLoading && viewCount > 0 && (
-              <div className="mt-2 flex items-center gap-3 text-[11px] text-foreground/60">
-                <span className="flex items-center gap-1">
-                  <Eye className="h-3 w-3" />
-                  {viewCount.toLocaleString()} {viewCount === 1 ? 'view' : 'views'}
-                </span>
+            {/* Footer: Views + More button */}
+            <div className="mt-2 flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/60">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {!viewCountLoading && viewCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    {viewCount.toLocaleString()} {viewCount === 1 ? 'view' : 'views'}
+                  </span>
+                )}
               </div>
-            )}
-
-            {/* Expand Indicator */}
-            <div className="mt-4 flex justify-center">
-              <div className="rounded-full bg-muted/20 p-1.5 transition-all hover:bg-muted/30">
-                <ChevronUp 
-                  className={`h-4 w-4 text-foreground/60 transition-all duration-300 ${
-                    isExpanded ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
+              <button 
+                type="button"
+                className="text-[10px] sm:text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                {isExpanded ? 'Less' : 'More'}
+              </button>
             </div>
           </div>
 

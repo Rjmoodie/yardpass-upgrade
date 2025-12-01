@@ -7,7 +7,13 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { supabase } from '@/integrations/supabase/client';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+// ✅ Disable Stripe Assistant (developer tool) - proper way per Stripe docs
+// https://docs.stripe.com/js/initializing#init_stripe_js-options-developerTools-assistant
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '', {
+  developerTools: {
+    assistant: { enabled: false }, // Disable the floating Stripe Assistant button
+  },
+} as Parameters<typeof loadStripe>[1]);
 
 interface StripeEmbeddedCheckoutProps {
   checkoutSessionId: string;
@@ -38,10 +44,13 @@ export function StripeEmbeddedCheckout({
     onSuccess();
   }, [onSuccess]);
 
-  // Memoize options - don't include onComplete since Stripe redirects automatically
+  // Memoize options - appearance must be set server-side when creating checkout session
+  // Note: Stripe Embedded Checkout does not support appearance parameter client-side
   const checkoutOptions = useMemo(() => {
     if (!clientSecret) return null;
-    return { clientSecret };
+    return { 
+      clientSecret
+    };
   }, [clientSecret]);
 
   // Fetch client secret from our backend

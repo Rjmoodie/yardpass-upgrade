@@ -45,14 +45,14 @@ serve(async (req) => {
     if (order_id_in) {
       const { data, error } = await admin
         .from("orders")
-        .select("id, status, user_id, event_id, tickets_issued_count, checkout_session_id")
+        .select("id, status, user_id, event_id, tickets_issued_count, checkout_session_id, stripe_payment_intent_id")
         .eq("id", order_id_in).maybeSingle();
       if (error) return err(`Order lookup failed: ${error.message}`, 500);
       order = data;
     } else if (session_id) {
       const { data, error } = await admin
         .from("orders")
-        .select("id, status, user_id, event_id, tickets_issued_count, checkout_session_id")
+        .select("id, status, user_id, event_id, tickets_issued_count, checkout_session_id, stripe_payment_intent_id")
         .eq("checkout_session_id", session_id).maybeSingle();
       if (error) return err(`Order lookup by session failed: ${error.message}`, 500);
       order = data;
@@ -76,37 +76,61 @@ serve(async (req) => {
       return ok({ status: "already_issued", issued: existingCount });
     }
 
-// 3) If not paid, verify with Stripe; flip to paid if session shows paid
+// 3) If not paid, verify with Stripe; flip to paid if session/payment intent shows paid
 let isPaid = paidStates.has(String(order.status).toLowerCase());
 if (!isPaid) {
-  const sid = session_id || order.checkout_session_id || "";
-  if (sid) {
+  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!stripeKey) {
+    console.warn("[ENSURE-TICKETS] missing STRIPE_SECRET_KEY; treating as pending");
+    return ok({ status: "pending" });
+  }
+  const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+  
+  // Try Payment Intent first (for Custom Checkout)
+  if (order.stripe_payment_intent_id) {
     try {
-      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-      if (!stripeKey) {
-        console.warn("[ENSURE-TICKETS] missing STRIPE_SECRET_KEY; treating as pending");
-        return ok({ status: "pending" });
-      }
-      const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-      const s = await stripe.checkout.sessions.retrieve(sid);
-      if (s.payment_status === "paid" || s.status === "complete") {
+      const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id);
+      if (pi.status === "succeeded") {
         await admin.from("orders").update({
           status: "paid",
           paid_at: new Date().toISOString(),
-          checkout_session_id: order.checkout_session_id ?? sid,
         }).eq("id", order_id);
         isPaid = true;
       } else {
-        console.log("[ENSURE-TICKETS] stripe not paid yet", { status: s.status, payment_status: s.payment_status });
-        return ok({ status: "pending", stripe_status: s.status, payment_status: s.payment_status });
+        console.log("[ENSURE-TICKETS] payment intent not succeeded yet", { status: pi.status });
+        return ok({ status: "pending", payment_intent_status: pi.status });
       }
-    } catch (se) {
-      console.error("[ENSURE-TICKETS] Stripe verify failed", { message: (se as any)?.message });
-      return ok({ status: "pending" });
+    } catch (piErr) {
+      console.error("[ENSURE-TICKETS] Payment Intent verify failed", { message: (piErr as any)?.message });
+      // Fall through to try Checkout Session
     }
-  } else {
-    console.log("[ENSURE-TICKETS] order not paid yet (no session_id)");
-    return ok({ status: "pending", order_status: order.status });
+  }
+  
+  // Fallback to Checkout Session (for legacy Embedded Checkout)
+  if (!isPaid) {
+    const sid = session_id || order.checkout_session_id || "";
+    if (sid) {
+      try {
+        const s = await stripe.checkout.sessions.retrieve(sid);
+        if (s.payment_status === "paid" || s.status === "complete") {
+          await admin.from("orders").update({
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            checkout_session_id: order.checkout_session_id ?? sid,
+          }).eq("id", order_id);
+          isPaid = true;
+        } else {
+          console.log("[ENSURE-TICKETS] stripe not paid yet", { status: s.status, payment_status: s.payment_status });
+          return ok({ status: "pending", stripe_status: s.status, payment_status: s.payment_status });
+        }
+      } catch (se) {
+        console.error("[ENSURE-TICKETS] Stripe verify failed", { message: (se as any)?.message });
+        return ok({ status: "pending" });
+      }
+    } else {
+      console.log("[ENSURE-TICKETS] order not paid yet (no session_id or payment_intent_id)");
+      return ok({ status: "pending", order_status: order.status });
+    }
   }
 }
 

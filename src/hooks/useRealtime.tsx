@@ -65,10 +65,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
   const showNotificationForEvent = (event: RealtimeEvent) => {
     switch (event.type) {
       case 'payment_completed':
-        toast({
-          title: "Payment Successful",
-          description: "Your payment has been processed successfully",
-        });
+        // Toast is handled by PurchaseSuccessHandler - don't duplicate
         break;
       case 'payment_failed':
         toast({

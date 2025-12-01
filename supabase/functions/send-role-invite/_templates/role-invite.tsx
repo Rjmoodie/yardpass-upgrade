@@ -111,6 +111,10 @@ export const RoleInviteEmail = ({
               <Link href="https://liventix.tech/privacy" style={footerLink}>
                 Privacy
               </Link>
+              {' · '}
+              <Link href="https://liventix.tech/terms" style={footerLink}>
+                Terms
+              </Link>
             </Text>
           </Section>
         </Container>

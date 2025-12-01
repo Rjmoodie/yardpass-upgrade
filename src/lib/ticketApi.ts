@@ -126,6 +126,7 @@ export async function createGuestCheckoutSession(params: {
   guest_code?: string | null;
   city?: string;
   country?: string;
+  theme?: string; // Optional theme preference: 'night' for dark, 'stripe' for light
 }): Promise<GuestCheckoutResponse> {
   try {
     const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;

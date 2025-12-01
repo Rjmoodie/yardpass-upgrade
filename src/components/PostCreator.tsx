@@ -207,6 +207,13 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [showRecordingModal, setShowRecordingModal] = useState(false);
+  
+  // Post as organization feature
+  const [postAsContextType, setPostAsContextType] = useState<'individual' | 'organization'>('individual');
+  const [postAsContextId, setPostAsContextId] = useState<string | null>(null);
+  const [selectedEventOrg, setSelectedEventOrg] = useState<{ id: string; name: string; logo_url: string | null } | null>(null);
+  const [userOrgMemberships, setUserOrgMemberships] = useState<Array<{ org_id: string; name: string; logo_url: string | null }>>([]);
+  const [loadingOrgInfo, setLoadingOrgInfo] = useState(false);
 
   const unmountedRef = useRef(false);
 
@@ -388,6 +395,85 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
     }, 250);
     return () => clearTimeout(id);
   }, [content, selectedEventId, user.id]);
+
+  /** Fetch organization info when event is selected (if org-owned) */
+  useEffect(() => {
+    if (!selectedEventId || !user) return;
+
+    let mounted = true;
+    setLoadingOrgInfo(true);
+
+    (async () => {
+      try {
+        // Fetch event details to check if it's org-owned
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('owner_context_type, owner_context_id')
+          .eq('id', selectedEventId)
+          .single();
+
+        if (eventError) throw eventError;
+
+        // Reset post-as state when event changes
+        setPostAsContextType('individual');
+        setPostAsContextId(null);
+        setSelectedEventOrg(null);
+        setUserOrgMemberships([]);
+
+        // If event is org-owned, fetch org info and user's memberships
+        if (eventData?.owner_context_type === 'organization' && eventData?.owner_context_id) {
+          const orgId = eventData.owner_context_id;
+
+          // Fetch organization details
+          const { data: orgData, error: orgError } = await supabase
+            .from('organizations')
+            .select('id, name, logo_url')
+            .eq('id', orgId)
+            .single();
+
+          if (orgError) throw orgError;
+
+          if (!mounted) return;
+          setSelectedEventOrg(orgData);
+
+          // Fetch user's memberships in this org (check if they can post as org)
+          const { data: membershipData, error: membershipError } = await supabase
+            .from('org_memberships')
+            .select('org_id, role')
+            .eq('org_id', orgId)
+            .eq('user_id', user.id)
+            .in('role', ['owner', 'admin', 'editor']);
+
+          if (membershipError) throw membershipError;
+
+          // If user is a member with posting rights, fetch org details for selector
+          if (membershipData && membershipData.length > 0) {
+            const { data: orgDetails, error: orgDetailsError } = await supabase
+              .from('organizations')
+              .select('id, name, logo_url')
+              .eq('id', orgId)
+              .single();
+
+            if (orgDetailsError) throw orgDetailsError;
+
+            if (!mounted) return;
+            setUserOrgMemberships([orgDetails]);
+          }
+        }
+      } catch (e: any) {
+        console.error('Error fetching org info:', e);
+        // Don't show toast for this - it's not critical
+      } finally {
+        if (mounted) {
+          setLoadingOrgInfo(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedEventId, user?.id]);
 
   /** Selections & computed */
   const selectedTicket = useMemo(
@@ -632,6 +718,8 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           text: content.trim(),
           media_urls,
           ticket_tier_id: selectedTicket?.tier_id ?? null,
+          post_as_context_type: postAsContextType === 'organization' ? 'organization' : null,
+          post_as_context_id: postAsContextType === 'organization' ? postAsContextId : null,
         },
       });
       if (error) throw error;
@@ -932,6 +1020,103 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
           </CardContent>
         </Card>
 
+        {/* Post as Organization Selector */}
+        {selectedEventOrg && userOrgMemberships.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Post as
+              </CardTitle>
+              <div className="text-xs text-muted-foreground">
+                Choose whether to post as yourself or as {selectedEventOrg.name}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col gap-2">
+                {/* Personal option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostAsContextType('individual');
+                    setPostAsContextId(null);
+                  }}
+                  className={`
+                    flex items-center gap-3 p-3 rounded-lg border-2 transition-all
+                    ${postAsContextType === 'individual'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                    }
+                  `}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-primary">
+                      {user.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-medium">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">Post as yourself</div>
+                  </div>
+                  {postAsContextType === 'individual' && (
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                      <span className="text-xs text-primary-foreground">✓</span>
+                    </div>
+                  )}
+                </button>
+
+                {/* Organization option */}
+                {userOrgMemberships.map((org) => (
+                  <button
+                    key={org.org_id}
+                    type="button"
+                    onClick={() => {
+                      setPostAsContextType('organization');
+                      setPostAsContextId(org.org_id);
+                    }}
+                    className={`
+                      flex items-center gap-3 p-3 rounded-lg border-2 transition-all
+                      ${postAsContextType === 'organization' && postAsContextId === org.org_id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                      }
+                    `}
+                  >
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                      {org.logo_url ? (
+                        <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-semibold">
+                          {org.name
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-medium">{org.name}</div>
+                      <div className="text-xs text-muted-foreground">Post as organization</div>
+                    </div>
+                    {postAsContextType === 'organization' && postAsContextId === org.org_id && (
+                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <span className="text-xs text-primary-foreground">✓</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Preview */}
         {content && selectedTicket && (
           <Card>
@@ -941,23 +1126,53 @@ export function PostCreator({ user, onBack, onPost }: PostCreatorProps) {
             <CardContent>
               <div className="border rounded-lg p-4">
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-xs text-primary-foreground">
-                      {user.name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .slice(0, 2)}
-                    </span>
-                  </div>
+                  {/* Avatar - show org logo if posting as org, otherwise user initials */}
+                  {postAsContextType === 'organization' && selectedEventOrg ? (
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                      {selectedEventOrg.logo_url ? (
+                        <img 
+                          src={selectedEventOrg.logo_url} 
+                          alt={selectedEventOrg.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold">
+                          {selectedEventOrg.name
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                      <span className="text-xs text-primary-foreground">
+                        {user.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .slice(0, 2)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm">{user.name}</span>
-                      {selectedTicket.ticket_tiers?.badge_label && (
+                      <span className="text-sm">
+                        {postAsContextType === 'organization' && selectedEventOrg
+                          ? selectedEventOrg.name
+                          : user.name}
+                      </span>
+                      {postAsContextType === 'organization' && selectedEventOrg ? (
+                        <Badge variant="outline" className="text-xs">
+                          Organization
+                        </Badge>
+                      ) : selectedTicket.ticket_tiers?.badge_label ? (
                         <Badge variant="outline" className="text-xs">
                           {selectedTicket.ticket_tiers.badge_label}
                         </Badge>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-sm mb-2 whitespace-pre-wrap">{content}</p>
 

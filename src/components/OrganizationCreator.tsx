@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { StripeConnectOnboarding } from './StripeConnectOnboarding';
 import { SocialLinkManager } from './SocialLinkManager';
 import { LiventixSpinner } from '@/components/LoadingSpinner';
+import { useOrganizations } from '@/hooks/useOrganizations';
 
 interface OrganizationCreatorProps {
   onBack: () => void;
@@ -36,8 +37,9 @@ function slugify(input: string) {
 }
 
 export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorProps) {
-  const { user } = useAuth();
+  const { user, profile, updateRole } = useAuth();
   const { toast } = useToast();
+  const { organizations } = useOrganizations(user?.id);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -202,6 +204,34 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
     }
   };
 
+  // Exit organizer mode if user has no organizations
+  const handleExitOrganizerMode = async () => {
+    if (!user || !profile) return;
+    
+    try {
+      const { error } = await updateRole('attendee');
+      if (error) throw error;
+      
+      toast({
+        title: 'Switched to Attendee Mode',
+        description: 'You can access the organizer dashboard anytime from your profile.',
+      });
+      
+      // Navigate to home
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Failed to exit organizer mode:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to switch mode. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const hasNoOrgs = organizations.length === 0;
+  const isInOrganizerMode = profile?.role === 'organizer';
+
   return (
     <div className="h-full bg-background flex flex-col">
       {/* Header */}
@@ -220,6 +250,19 @@ export function OrganizationCreator({ onBack, onSuccess }: OrganizationCreatorPr
               Set up your organization to manage events and team members
             </p>
           </div>
+          {/* Exit Organizer Mode Button - Show if user has no orgs and is in organizer mode */}
+          {hasNoOrgs && isInOrganizerMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExitOrganizerMode}
+              className="items-center gap-2"
+              title="Switch back to Attendee Mode"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="text-xs">Exit Organizer</span>
+            </Button>
+          )}
         </div>
       </div>
 

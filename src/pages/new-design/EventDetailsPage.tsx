@@ -20,6 +20,7 @@ import { FlashbackEmptyState } from "@/components/flashbacks/FlashbackEmptyState
 import { FullScreenLoading } from "@/components/layout/FullScreenLoading";
 import { updateMetaTags } from "@/utils/meta";
 import { buildEventOgPayload } from "@/types/og";
+import { EventTicketCta } from "@/components/EventTicketCta";
 
 // Sponsor Section Component - Only renders if sponsors exist
 function SponsorSection({ eventId }: { eventId: string }) {
@@ -139,7 +140,10 @@ export function EventDetailsPageIntegrated() {
         // If identifier looks like a UUID, query by ID, otherwise by slug
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
         
-        console.log('[EventDetailsPage] Searching for:', eventId, 'isUUID:', isUUID);
+        // Debug logging only in development
+        if (import.meta.env.DEV) {
+          console.log('[EventDetailsPage] Loading:', eventId);
+        }
 
         let query = supabase
           .from('events')
@@ -207,8 +211,17 @@ export function EventDetailsPageIntegrated() {
         // Get posts count - membership-aware for accurate tab numbers
         try {
           // 1) Load organizer member user_ids
+          // Organizers include: event creator (ALWAYS) + org members (if org-owned) + individual owner (if individual-owned)
+          // This matches the Edge Function's organizer detection logic
           let memberIds: string[] = [];
+          
+          // Always include event creator (they are always an organizer, regardless of ownership type)
+          if (data.created_by) {
+            memberIds.push(data.created_by);
+          }
+          
           if (data.owner_context_type === 'organization' && data.owner_context_id) {
+            // For org events: creator + all org members
             const { data: members, error: membersError } = await supabase
               .from('org_memberships')
               .select('user_id')
@@ -217,13 +230,21 @@ export function EventDetailsPageIntegrated() {
             if (membersError) {
               console.error('[EventDetailsPage] Error fetching org members:', membersError);
             } else {
-              memberIds = (members ?? []).map((m: any) => m.user_id);
+              const orgMemberIds = (members ?? []).map((m: any) => m.user_id);
+              // Add org members (avoid duplicates if creator is also a member)
+              orgMemberIds.forEach(id => {
+                if (!memberIds.includes(id)) {
+                  memberIds.push(id);
+                }
+              });
             }
-          } else if (data.owner_context_type === 'individual' && data.created_by) {
-            // For individual events, creator is the organizer
-            memberIds = [data.created_by];
+          } else if (data.owner_context_type === 'individual' && data.owner_context_id) {
+            // For individual events: creator + owner (may be same person, but include both for consistency)
+            if (data.owner_context_id && !memberIds.includes(data.owner_context_id)) {
+              memberIds.push(data.owner_context_id);
+            }
           }
-
+          
           // 2) Organizer posts count
           if (memberIds.length > 0) {
             const { count: organizerCount, error: organizerError } = await supabase
@@ -242,37 +263,39 @@ export function EventDetailsPageIntegrated() {
             setPostsCount(0);
           }
 
-          // 3) Tagged (attendee) posts count - posts NOT by organizers
-          if (memberIds.length > 0) {
-            // Get all posts first, then filter out organizer posts
-            const { data: allPosts, error: allPostsError } = await supabase
-              .from('event_posts')
-              .select('author_user_id')
-              .eq('event_id', data.id);
-            
-            if (allPostsError) {
-              console.error('[EventDetailsPage] Error fetching all posts:', allPostsError);
-              setTaggedCount(0);
-            } else {
-              // Filter out organizer posts
-              const taggedPosts = (allPosts || []).filter(
-                post => !memberIds.includes(post.author_user_id)
-              );
-              setTaggedCount(taggedPosts.length);
+          // 3) Tagged (attendee) posts count - use Edge Function to get accurate count
+          // This ensures the count matches exactly what's displayed
+          try {
+            const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+            const url = new URL(`${baseUrl}/functions/v1/posts-list`);
+            url.searchParams.append('event_id', data.id);
+            url.searchParams.append('limit', '100');
+            url.searchParams.append('filter_type', 'attendee_only');
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers: Record<string, string> = {};
+            if (session?.access_token) {
+              headers['Authorization'] = `Bearer ${session.access_token}`;
             }
-          } else {
-            // If no org members, all posts are "tagged"
-            const { count: totalCount, error: totalError } = await supabase
-              .from('event_posts')
-              .select('id', { count: 'exact', head: true })
-              .eq('event_id', data.id);
-            
-            if (totalError) {
-              console.error('[EventDetailsPage] Error fetching total posts:', totalError);
-              setTaggedCount(0);
+
+            const res = await fetch(url.toString(), {
+              method: 'GET',
+              headers,
+              cache: 'no-store'
+            });
+
+            if (res.ok) {
+              const payload = await res.json();
+              const posts = payload.data ?? [];
+              // Edge Function already filters by attendee_only, so use the count directly
+              setTaggedCount(posts.length);
             } else {
-              setTaggedCount(totalCount || 0);
+              console.error('[EventDetailsPage] Error fetching tagged posts count:', res.status);
+              setTaggedCount(0);
             }
+          } catch (error) {
+            console.error('[EventDetailsPage] Error fetching tagged posts count:', error);
+            setTaggedCount(0);
           }
         } catch (error) {
           console.error('[EventDetailsPage] Error fetching post counts:', error);
@@ -382,7 +405,6 @@ export function EventDetailsPageIntegrated() {
         };
 
         setEvent(transformed);
-        console.log('[EventDetailsPage] Event loaded successfully:', transformed.title);
 
         // Update meta tags for rich share previews using shared builder
         // This ensures consistency with server-side OG rendering
@@ -974,46 +996,20 @@ export function EventDetailsPageIntegrated() {
         )}
       </div>
 
-      {/* Sticky Footer - Actions CTA - Always visible above bottom nav */}
-      {event.ticketTiers && event.ticketTiers.length > 0 && (
-        <div className="fixed bottom-16 left-0 right-0 z-[110] border-t border-border shadow-lg bg-background/95 backdrop-blur-xl p-3 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-3 max-w-screen-xl mx-auto">
-            {/* Going Counter */}
-            <button 
-              onClick={handleToggleGoing}
-              className={`flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 transition-all active:scale-95 min-w-[100px] ${
-                isGoing
-                  ? 'border-primary bg-primary/10 shadow-sm'
-                  : 'border-border bg-background/50 hover:bg-muted'
-              }`}
-            >
-              <span className={`text-xs font-medium ${isGoing ? 'text-primary' : 'text-foreground/60'}`}>
-                {isGoing ? '✓ Going' : 'Interested?'}
-              </span>
-              <span className="text-[10px] text-foreground/50">
-                {goingCount > 0 
-                  ? `${goingCount} ${goingCount === 1 ? 'person says' : 'people say'} they're going`
-                  : 'Be the first'}
-              </span>
-            </button>
-            
-            {/* Price & Tickets */}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-foreground/70 font-medium truncate">Starting from</p>
-              <p className="text-lg font-bold text-foreground truncate sm:text-xl">
-                ${Math.min(...event.ticketTiers.map(t => t.price)).toFixed(2)}
-              </p>
-            </div>
-            
-            <button 
-              onClick={handleGetTickets}
-              className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
-            >
-              Get Tickets
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Floating Pill CTA - Premium floating ticket button above bottom nav */}
+      {event.ticketTiers && event.ticketTiers.length > 0 && (() => {
+        const isPast = event.start_at ? new Date(event.start_at) < new Date() : false;
+        const lowestPriceCents = Math.min(...event.ticketTiers.map(t => t.price * 100));
+        
+        if (isPast) return null;
+        
+        return (
+          <EventTicketCta
+            lowestPriceCents={lowestPriceCents}
+            onClick={handleGetTickets}
+          />
+        );
+      })()}
 
       {/* Ticket Purchase Modal */}
       {event && (
@@ -1048,7 +1044,6 @@ export function EventDetailsPageIntegrated() {
 
         return (
           <FullscreenPostViewer
-            key={`viewer-${selectedPostId}-${event.id}-${activeTab}`}
             isOpen={showCommentModal}
             onClose={() => {
               setShowCommentModal(false);
@@ -1060,7 +1055,6 @@ export function EventDetailsPageIntegrated() {
             postIdSequence={postIdSequence}
             initialIndex={initialIndex >= 0 ? initialIndex : 0}
             onCommentCountChange={(postId, newCount) => {
-              console.log('💬 [EventDetails] Comment count updated:', postId, newCount);
               // Update the corresponding posts array
               if (activeTab === 'posts') {
                 setOrganizerPosts(prev => prev.map(p => 

@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Ticket, ChevronUp, ChevronDown } from "lucide-react";
+import { Calendar, MapPin, Ticket } from "lucide-react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -82,11 +82,9 @@ export function FeedCard({ event }: FeedCardProps) {
                   <Ticket className="h-4 w-4 text-primary-foreground" />
                   <span className="text-xs text-primary-foreground sm:text-sm">Tickets</span>
                 </button>
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-foreground/80" />
-                ) : (
-                  <ChevronUp className="h-4 w-4 text-foreground/80" />
-                )}
+                <span className="text-[10px] sm:text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors">
+                  {isExpanded ? 'Less' : 'More'}
+                </span>
               </div>
             </div>
           </button>

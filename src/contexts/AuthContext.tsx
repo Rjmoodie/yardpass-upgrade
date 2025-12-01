@@ -80,8 +80,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     
     // Check for existing session ONCE on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!mounted) return;
+      
+      // ✅ FIX: Handle refresh token errors gracefully
+      if (error) {
+        console.error('[Auth] Session error:', error);
+        // If refresh token is invalid, clear session and sign out
+        if (error.message?.includes('Refresh Token') || error.message?.includes('Invalid Refresh Token')) {
+          console.log('[Auth] Refresh token invalid, clearing session...');
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          // Clear localStorage to prevent theme flash
+          try {
+            localStorage.removeItem('user_role');
+          } catch (e) {
+            // Silently fail if localStorage unavailable
+          }
+          // Sign out to clear Supabase session
+          supabase.auth.signOut().catch(() => {
+            // Ignore sign out errors
+          });
+        }
+        setLoading(false);
+        return;
+      }
       
       setSession(session);
       setUser(session?.user ?? null);
@@ -97,6 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userProfile) {
             if (import.meta.env.DEV) {
               console.log('[Auth] ✅ Profile loaded:', userProfile.role);
+            }
+            // ✅ Save role to localStorage immediately to prevent theme flash on reload
+            if (userProfile.role) {
+              try {
+                localStorage.setItem('user_role', userProfile.role);
+              } catch (e) {
+                // Silently fail if localStorage is unavailable
+              }
             }
             setProfile(userProfile);
           } else {
@@ -118,6 +150,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
+        // ✅ FIX: Handle token refresh errors
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.error('[Auth] Token refresh failed, signing out...');
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          try {
+            localStorage.removeItem('user_role');
+          } catch (e) {
+            // Silently fail
+          }
+          await supabase.auth.signOut().catch(() => {
+            // Ignore sign out errors
+          });
+          setLoading(false);
+          return;
+        }
+        
         // Only log for actual auth events (not initial load)
         if (event !== 'INITIAL_SESSION') {
           setSession(session);
@@ -134,6 +184,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (userProfile) {
                 if (import.meta.env.DEV) {
                   console.log('[Auth] ✅ Profile loaded:', userProfile.role);
+                }
+                // ✅ Save role to localStorage immediately to prevent theme flash on reload
+                if (userProfile.role) {
+                  try {
+                    localStorage.setItem('user_role', userProfile.role);
+                  } catch (e) {
+                    // Silently fail if localStorage is unavailable
+                  }
                 }
                 setProfile(userProfile);
               } else {
@@ -243,12 +301,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('[Auth] ✅ Role updated:', data);
       
+      // ✅ Save role to localStorage immediately to prevent theme flash
+      try {
+        localStorage.setItem('user_role', role);
+      } catch (e) {
+        // Silently fail if localStorage is unavailable
+      }
+      
       // ✅ Optimistic update for instant UI response
       setProfile(prev => prev ? { ...prev, role } : prev);
       
       // Then fetch full profile to ensure consistency
       fetchUserProfile(user.id).then(updatedProfile => {
         if (updatedProfile) {
+          // ✅ Save role to localStorage when profile is updated
+          if (updatedProfile.role) {
+            try {
+              localStorage.setItem('user_role', updatedProfile.role);
+            } catch (e) {
+              // Silently fail if localStorage is unavailable
+            }
+          }
           setProfile(updatedProfile);
         }
       });
@@ -267,13 +340,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     
-    // Clear guest sessions to prevent conflicts
+    // Clear guest sessions and cached role to prevent conflicts
     localStorage.removeItem('ticket-guest-session');
+    localStorage.removeItem('user_role');
   };
 
   // ✅ Optimistic profile update for instant UI changes
   const updateProfileOptimistic = (updates: Partial<UserProfile>) => {
     setProfile(prev => prev ? { ...prev, ...updates } : prev);
+    
+    // ✅ Save role to localStorage if it's being updated optimistically
+    if (updates.role) {
+      try {
+        localStorage.setItem('user_role', updates.role);
+      } catch (e) {
+        // Silently fail if localStorage is unavailable
+      }
+    }
   };
 
   return (

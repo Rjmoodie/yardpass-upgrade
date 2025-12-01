@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const LOG_OTP = Deno.env.get("LOG_OTP") === "true";
 
 const corsHeaders: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -24,9 +25,12 @@ const json = (body: unknown, init: ResponseInit = {}) =>
     },
   });
 
-// Generate 6-digit OTP
-const generateOTP = (): string =>
-  Math.floor(100000 + Math.random() * 900000).toString();
+// Generate 6-digit OTP (cryptographically secure)
+const generateOTP = (): string => {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return (array[0] % 900000 + 100000).toString();
+};
 
 const hashOtp = async (otp: string, email: string): Promise<string> => {
   const encoder = new TextEncoder();
@@ -54,7 +58,8 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json().catch(() => ({} as any));
+    const body = await req.json().catch(() => ({} as any));
+    const { email } = body;
 
     if (!email || typeof email !== "string") {
       return json({ error: "Email is required" }, { status: 400 });
@@ -62,11 +67,24 @@ serve(async (req) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return json({ error: "Invalid email format" }, { status: 400 });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
+
     const otp = generateOTP();
     const otpHash = await hashOtp(otp, normalizedEmail);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    console.log(`[auth-send-otp] Generated OTP: ${otp} for ${normalizedEmail}`);
+    if (LOG_OTP) {
+      console.log(`[auth-send-otp] Generated OTP: ${otp} for ${normalizedEmail}`);
+    }
+
+    // TODO: Optional rate limiting / cooldown here
+    // e.g. check last created_at for this email and reject if < X seconds ago
 
     const { error: dbError } = await supabase
       .from("guest_otp_codes")
@@ -76,7 +94,7 @@ serve(async (req) => {
         otp_hash: otpHash,
         event_id: null,
         expires_at: expiresAt,
-        created_at: new Date().toISOString(),
+        created_at: now.toISOString(),
       });
 
     if (dbError) {
@@ -87,6 +105,7 @@ serve(async (req) => {
     // Send email via Resend if configured
     if (RESEND_API_KEY) {
       try {
+        const year = now.getFullYear();
         const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -103,9 +122,9 @@ serve(async (req) => {
             <!-- Header -->
             <tr>
               <td align="center" style="background:#fafafa; border:1px solid #e2e8f0; padding:32px;">
-                <h1 style="margin:0; color:#0f172a; font-size:24px; font-weight:700; letter-spacing:-0.5px;">Liventix</h1>
-                <p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:15px;">
-                  Your gateway to events and culture
+                <h1 style="margin:0; color:#0f172a; font-size:24px; font-weight:700; letter-spacing:-0.5px;">YardPass</h1>
+                <p style="margin:8px 0 0 0; color:#64748b; font-size:15px;">
+                  Live Ticket Events
                 </p>
               </td>
             </tr>
@@ -156,7 +175,7 @@ serve(async (req) => {
             <!-- Footer -->
             <tr>
               <td align="center" style="background-color:#f8fafc; padding:20px 32px; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:12px;">
-                <p style="margin:0 0 6px 0;">© ${new Date().getFullYear()} Liventix. All rights reserved.</p>
+                <p style="margin:0 0 6px 0;">© ${year} Liventix. All rights reserved.</p>
                 <a href="https://liventix.tech" style="color:#94a3b8; text-decoration:none;">liventix.tech</a>
               </td>
             </tr>
@@ -178,10 +197,12 @@ Enter this code to sign in and access your tickets.
 
 For security, never share this code with anyone.
 
-© ${new Date().getFullYear()} Liventix
+© ${year} Liventix
 liventix.tech`;
 
-        console.log(`[auth-send-otp] OTP in HTML: ${emailHtml.includes(otp)}, in text: ${textBody.includes(otp)}`);
+        if (LOG_OTP) {
+          console.log(`[auth-send-otp] OTP present in HTML: ${emailHtml.includes(otp)}, in text: ${textBody.includes(otp)}`);
+        }
 
         const emailResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -210,9 +231,10 @@ liventix.tech`;
         return json({ error: "Failed to send email" }, { status: 500 });
       }
     } else {
-      // Helpful in non-production; optionally guard behind another env var
       console.log(
-        `[auth-send-otp] RESEND_API_KEY not configured – OTP for ${normalizedEmail}: ${otp}`,
+        `[auth-send-otp] RESEND_API_KEY not configured – OTP for ${normalizedEmail} ${
+          LOG_OTP ? `: ${otp}` : "(hidden) for security"
+        }`,
       );
     }
 
