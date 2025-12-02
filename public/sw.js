@@ -40,7 +40,23 @@ self.addEventListener('install', (event) => {
     caches.open(STATIC_CACHE)
       .then(cache => {
         console.log('[SW] Precaching static assets');
-        return cache.addAll(PRECACHE_ASSETS);
+        // Use addAll but catch individual failures to prevent 403 from blocking install
+        return Promise.allSettled(
+          PRECACHE_ASSETS.map(url => 
+            fetch(url)
+              .then(response => {
+                if (!response.ok) {
+                  console.warn(`[SW] Failed to cache ${url}: ${response.status}`);
+                  return null;
+                }
+                return cache.put(url, response);
+              })
+              .catch(error => {
+                console.warn(`[SW] Failed to fetch ${url}:`, error);
+                return null;
+              })
+          )
+        );
       })
       .then(() => {
         console.log('[SW] Service worker installed');
@@ -49,6 +65,8 @@ self.addEventListener('install', (event) => {
       })
       .catch(error => {
         console.error('[SW] Precaching failed:', error);
+        // Still skip waiting even if precaching fails
+        return self.skipWaiting();
       })
   );
 });

@@ -45,10 +45,36 @@
   </FilesMatch>
 </IfModule>
 
+# Service Worker Support
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType application/javascript .mjs
+  AddType text/javascript .js
+</IfModule>
+
+# Allow service worker registration
+<IfModule mod_headers.c>
+  # Service worker must be served with correct MIME type
+  <FilesMatch "sw\.js$">
+    Header set Content-Type "application/javascript; charset=utf-8"
+    Header set Service-Worker-Allowed "/"
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+  
+  # Allow service worker scope
+  Header set Service-Worker-Allowed "/"
+</IfModule>
+
 # SPA fallback (for React Router)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # Don't rewrite service worker
+  RewriteRule ^sw\.js$ - [L]
+  RewriteRule ^manifest\.json$ - [L]
+  
+  # Don't rewrite existing files
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
