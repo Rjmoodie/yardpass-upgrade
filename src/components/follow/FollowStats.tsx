@@ -6,22 +6,26 @@ interface FollowStatsProps {
   targetType: 'user' | 'organizer';
   targetId: string;
   enablePendingReview?: boolean;
+  showFollowing?: boolean; // New prop to control visibility of "Following" section
 }
 
-export function FollowStats({ targetType, targetId, enablePendingReview = false }: FollowStatsProps) {
+export function FollowStats({ targetType, targetId, enablePendingReview = false, showFollowing = true }: FollowStatsProps) {
   const { counts } = useFollowCountsCached({ targetType, targetId });
   const [modal, setModal] = useState<'followers' | 'following' | null>(null);
 
   const items = useMemo(() => {
     const data = [
       { key: 'followers' as const, label: 'Followers', value: counts.followerCount },
-      { key: 'following' as const, label: 'Following', value: counts.followingCount },
     ];
+    // Only add "Following" if showFollowing is true
+    if (showFollowing) {
+      data.push({ key: 'following' as const, label: 'Following', value: counts.followingCount });
+    }
     if (enablePendingReview && counts.pendingCount > 0) {
       data.unshift({ key: 'followers' as const, label: 'Requests', value: counts.pendingCount });
     }
     return data;
-  }, [counts.followerCount, counts.followingCount, counts.pendingCount, enablePendingReview]);
+  }, [counts.followerCount, counts.followingCount, counts.pendingCount, enablePendingReview, showFollowing]);
 
   return (
     <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
@@ -29,8 +33,12 @@ export function FollowStats({ targetType, targetId, enablePendingReview = false 
         <button
           key={item.label}
           type="button"
-          onClick={() => setModal(item.key)}
-          className="flex flex-col items-start text-left min-w-0"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setModal(item.key);
+          }}
+          className="flex flex-col items-start text-left min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
         >
           <span className="text-sm sm:text-base font-semibold tabular-nums">{item.value}</span>
           <span className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">{item.label}</span>
