@@ -49,9 +49,10 @@ function QRCodeDisplay({
     const generateQR = async () => {
       setGenerating(true);
       try {
+        // iOS Safari fix: Use smaller width and simpler options to avoid find_path errors
         const qrDataUrl = await QRCode.toDataURL(qrCode, {
-          width: 400,
-          margin: 2,
+          width: 300, // Reduced from 400 for iOS compatibility
+          margin: 1,
           errorCorrectionLevel: 'M',
           type: 'image/png',
           color: {
@@ -60,9 +61,26 @@ function QRCodeDisplay({
           }
         });
         setQrCodeImages(prev => ({ ...prev, [ticketId]: qrDataUrl }));
-      } catch (err) {
-        console.error('[QRCodeDisplay] Failed to generate QR:', ticketId, err);
-        setError(true);
+      } catch (err: any) {
+        // iOS Safari specific error handling
+        if (err?.message?.includes('find_path') || err?.message?.includes('undefined')) {
+          console.warn('[QRCodeDisplay] QR generation failed on iOS, trying fallback:', ticketId);
+          // Fallback: Try with even simpler options
+          try {
+            const qrDataUrl = await QRCode.toDataURL(qrCode, {
+              width: 200,
+              margin: 1,
+              errorCorrectionLevel: 'L', // Lower error correction for simpler generation
+            });
+            setQrCodeImages(prev => ({ ...prev, [ticketId]: qrDataUrl }));
+          } catch (fallbackErr) {
+            console.error('[QRCodeDisplay] QR generation fallback also failed:', ticketId, fallbackErr);
+            setError(true);
+          }
+        } else {
+          console.error('[QRCodeDisplay] Failed to generate QR:', ticketId, err);
+          setError(true);
+        }
       } finally {
         setGenerating(false);
       }

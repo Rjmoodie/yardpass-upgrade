@@ -95,13 +95,57 @@ export function PurchaseSuccessHandler() {
         
         await forceRefreshTickets();
         
-        // Only show toast once (React Strict Mode can cause double execution)
-        if (!toastShownRef.current) {
+        // Create notification instead of toast (only once to prevent duplicates)
+        // Check if a similar notification already exists to prevent duplicates
+        if (!toastShownRef.current && user) {
           toastShownRef.current = true;
-          toast({
-            title: 'Payment Successful!',
-            description: successDescription,
-          });
+          try {
+            // Check for existing notification with same message in last 30 seconds
+            const { data: existing } = await supabase
+              .from('notifications')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('event_type', 'payment_completed')
+              .eq('message', successDescription)
+              .gte('created_at', new Date(Date.now() - 30000).toISOString())
+              .limit(1)
+              .single();
+
+            // Only create if no duplicate exists
+            if (!existing) {
+              // Get user profile for notification display
+              const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('display_name, photo_url')
+                .eq('user_id', user.id)
+                .single();
+
+              await supabase.from('notifications').insert({
+                user_id: user.id,
+                title: 'Payment Successful!',
+                message: successDescription,
+                type: 'success',
+                event_type: 'payment_completed',
+                action_url: redirectPath,
+                data: {
+                  user_name: profile?.display_name || 'You',
+                  user_avatar: profile?.photo_url || '',
+                  user_id: user.id,
+                },
+              });
+            }
+          } catch (notifError: any) {
+            // If error is "not found" (no duplicate), that's fine - continue
+            // Otherwise log and fallback to toast
+            if (notifError?.code !== 'PGRST116') {
+              console.error('Failed to create payment notification:', notifError);
+              // Fallback to toast if notification creation fails
+              toast({
+                title: 'Payment Successful!',
+                description: successDescription,
+              });
+            }
+          }
         }
         
         setRedirecting(true);

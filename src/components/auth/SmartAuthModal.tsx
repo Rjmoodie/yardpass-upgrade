@@ -6,11 +6,14 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { AgeGate } from './AgeGate';
+import { storeUserRegion } from '@/lib/region-detection';
 
 type AuthStep =
   | 'email-entry'
   | 'password-entry'
   | 'signup'
+  | 'age-verification'
   | 'email-otp-entry';
 
 type AccountType = 'guest-checkout' | 'organic-passwordless' | 'password' | 'new';
@@ -29,6 +32,8 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
   const [otp, setOtp] = useState('');
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
+  const [userRegion, setUserRegion] = useState<string | null>(null);
 
   const resetState = () => {
     setStep('email-entry');
@@ -38,6 +43,8 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
     setOtp('');
     setAccountType(null);
     setLoading(false);
+    setDateOfBirth(null);
+    setUserRegion(null);
   };
 
   useEffect(() => {
@@ -110,7 +117,8 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
       } else if (type === 'guest-checkout' || type === 'organic-passwordless') {
         await sendEmailOtp(normalizedEmail);
       } else {
-        setStep('signup');
+        // New user - show age verification first
+        setStep('age-verification');
       }
     } catch (error) {
       handleErrorToast(error, 'Something went wrong. Please try again.');
@@ -212,17 +220,38 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
 
 
   // ============================================
+  // Age Verification Handler
+  // ============================================
+  const handleAgeVerified = async (birthDate: Date, region: string | null) => {
+    setDateOfBirth(birthDate);
+    setUserRegion(region);
+    setStep('signup');
+  };
+
+  // ============================================
   // Sign Up Flow
   // ============================================
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
+    
+    // Require age verification for new users
+    if (!dateOfBirth) {
+      toast({
+        title: 'Age verification required',
+        description: 'Please verify your age to continue.',
+        variant: 'destructive',
+      });
+      setStep('age-verification');
+      return;
+    }
+    
     setLoading(true);
 
     try {
       const normalizedEmail = normalizeEmail(email);
       
       // Create account first (required for OTP verification)
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: normalizedEmail,
         password: crypto.randomUUID() + Math.random().toString(36).substring(7), // Temporary random password
         options: {
@@ -241,6 +270,27 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
           return;
         }
         throw signUpError;
+      }
+
+      // Store age verification and region in user profile
+      if (signUpData?.user?.id) {
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .update({
+            date_of_birth: dateOfBirth.toISOString().split('T')[0],
+            age_verified_at: new Date().toISOString(),
+            region: userRegion,
+          })
+          .eq('user_id', signUpData.user.id);
+
+        if (profileError) {
+          console.error('[SignUp] Failed to update profile with age verification:', profileError);
+        }
+
+        // Store region if detected
+        if (userRegion) {
+          await storeUserRegion(signUpData.user.id, userRegion as any);
+        }
       }
 
       // Send OTP for verification after account creation
@@ -412,6 +462,31 @@ export function SmartAuthModal({ isOpen, onClose, onSuccess }: SmartAuthModalPro
           </form>
         )}
 
+
+        {/* STEP: Age Verification */}
+        {step === 'age-verification' && (
+          <div className="space-y-4">
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium">Almost there!</p>
+              <p className="text-xs text-muted-foreground">
+                Please confirm your date of birth to continue
+              </p>
+            </div>
+
+            <AgeGate
+              onAgeVerified={handleAgeVerified}
+              minimumAge={13}
+            />
+
+            <button
+              type="button"
+              onClick={() => setStep('email-entry')}
+              className="w-full text-xs text-muted-foreground hover:text-foreground"
+            >
+              ← Back
+            </button>
+          </div>
+        )}
 
         {/* STEP: Signup */}
         {step === 'signup' && (

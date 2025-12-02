@@ -524,8 +524,9 @@ export function WebLandingPage() {
                 <a className="hover:text-white" href="#">About</a>
                 <a className="hover:text-white" href="#">Pricing</a>
                 <a className="hover:text-white" href="#">Support</a>
-                <a className="hover:text-white" href="#">Privacy</a>
-                <a className="hover:text-white" href="#">Terms</a>
+                <a className="hover:text-white" href="/privacy">Privacy</a>
+                <a className="hover:text-white" href="/terms">Terms</a>
+                <a className="hover:text-white" href="/community-guidelines">Guidelines</a>
               </div>
             </div>
             <div className="space-y-5">

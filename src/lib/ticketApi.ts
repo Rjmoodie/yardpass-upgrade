@@ -119,7 +119,7 @@ export async function createCheckoutSession(params: {
 
 export async function createGuestCheckoutSession(params: {
   event_id: string;
-  items: { tier_id: string; quantity: number; unit_price_cents?: number }[];
+  items: { tier_id: string; quantity: number; unit_price_cents?: number }[]; // unit_price_cents is ignored - price always from DB
   contact_email: string;
   contact_name?: string;
   contact_phone?: string;
@@ -129,13 +129,30 @@ export async function createGuestCheckoutSession(params: {
   theme?: string; // Optional theme preference: 'night' for dark, 'stripe' for light
 }): Promise<GuestCheckoutResponse> {
   try {
-    const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    // Try to get from environment, fallback to supabase client config
+    let baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    let anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+    // If not in env, try to get from supabase client (for runtime config)
+    if (!baseUrl || !anonKey) {
+      // @ts-ignore - accessing internal config
+      const clientUrl = supabase.supabaseUrl;
+      // @ts-ignore - accessing internal config
+      const clientKey = supabase.supabaseKey;
+      
+      if (clientUrl && clientKey) {
+        baseUrl = clientUrl;
+        anonKey = clientKey;
+      }
+    }
 
     if (!baseUrl || !anonKey) {
-      throw new ApiError('Supabase environment variables are not configured', {
-        code: 'CONFIG_ERROR',
-      });
+      throw new ApiError(
+        'Unable to connect to payment service. Please refresh the page and try again.',
+        {
+          code: 'CONFIG_ERROR',
+        }
+      );
     }
 
     const response = await fetch(`${baseUrl}/functions/v1/guest-checkout`, {

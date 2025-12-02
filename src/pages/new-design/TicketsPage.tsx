@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { QrCode, Download, Share2, MoreVertical, Clock, MapPin, Calendar, ChevronDown, RefreshCcw } from "lucide-react";
+import { QrCode, Share2, MoreVertical, Clock, MapPin, Calendar, ChevronDown, RefreshCcw } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -146,17 +146,36 @@ export default function TicketsPage() {
           .filter(t => t.status === 'upcoming' && t.qrCode)
           .map(async (ticket) => {
             try {
+              // iOS Safari fix: Use smaller width and simpler options to avoid find_path errors
               const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
-                width: 400,
-                margin: 2,
+                width: 300, // Reduced from 400 for iOS compatibility
+                margin: 1,
+                errorCorrectionLevel: 'M',
+                type: 'image/png',
                 color: {
                   dark: '#000000',
                   light: '#FFFFFF'
                 }
               });
               return { id: ticket.id, dataUrl: qrDataUrl };
-            } catch (err) {
-              console.error('Error generating QR code:', err);
+            } catch (err: any) {
+              // iOS Safari specific error handling
+              if (err?.message?.includes('find_path') || err?.message?.includes('undefined')) {
+                console.warn('[TicketsPage] QR generation failed on iOS, trying fallback:', ticket.id);
+                // Fallback: Try with even simpler options
+                try {
+                  const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
+                    width: 200,
+                    margin: 1,
+                    errorCorrectionLevel: 'L', // Lower error correction for simpler generation
+                  });
+                  return { id: ticket.id, dataUrl: qrDataUrl };
+                } catch (fallbackErr) {
+                  console.error('[TicketsPage] QR generation fallback also failed:', ticket.id, fallbackErr);
+                  return null;
+                }
+              }
+              console.error('[TicketsPage] Error generating QR code:', ticket.id, err);
               return null;
             }
           });
@@ -198,15 +217,6 @@ export default function TicketsPage() {
     }
   };
 
-  const handleDownload = (ticket: Ticket) => {
-    const qrImage = qrCodeImages[ticket.id];
-    if (!qrImage) return;
-
-    const link = document.createElement('a');
-    link.href = qrImage;
-    link.download = `${ticket.eventName.replace(/\s+/g, '-')}-ticket-${ticket.id}.png`;
-    link.click();
-  };
 
   // Loading state
   if (loading) {

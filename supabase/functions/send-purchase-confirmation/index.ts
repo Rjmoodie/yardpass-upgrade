@@ -27,8 +27,6 @@ if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 // Prefer a pinned list of allowed origins; fall back to "*" if you truly need it.
 const ALLOWED_ORIGINS = new Set([
-  "https://yardpass.tech",
-  "https://www.yardpass.tech",
   "https://liventix.tech",
   "https://www.liventix.tech",
   "http://localhost:5173", // dev
@@ -107,27 +105,13 @@ function baseUrl(): string {
   }
   
   // Fallback to production domain
-  return "https://yardpass.tech";
+  return "https://liventix.tech";
 }
 
-function getLogoUrl(orgLogoUrl?: string): string {
-  // If org has a logo, use it (but ensure it's a full URL)
-  if (orgLogoUrl) {
-    // If it's already a full URL, use it
-    if (orgLogoUrl.startsWith("http://") || orgLogoUrl.startsWith("https://")) {
-      return orgLogoUrl;
-    }
-    // If it's a relative path, make it absolute
-    if (orgLogoUrl.startsWith("/")) {
-      return `${baseUrl()}${orgLogoUrl}`;
-    }
-    // Otherwise, assume it's a Supabase storage URL and use as-is
-    return orgLogoUrl;
-  }
-  
-  // Default fallback - use a reliable CDN or public URL
-  // Try multiple fallback options for maximum compatibility
-  return `${baseUrl()}/liventix-logo.png`;
+function getLogoUrl(): string {
+  // Always use Liventix logo only (small, neat size)
+  // Use Supabase storage URL for better email client compatibility (publicly accessible, no CORS issues)
+  return 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix Official/org-images/liventix-logo.png';
 }
 
 function formatDate(value?: string) {
@@ -211,7 +195,7 @@ async function fetchEmailContext(eventId: string): Promise<{ orgInfo?: OrgInfo; 
         name: org.name,
         logoUrl: org.logo_url ?? undefined,
         websiteUrl: org.handle ? `${baseUrl()}/org/${org.handle}` : undefined,
-        supportEmail: "support@yardpass.tech",
+        supportEmail: "support@liventix.tech",
       };
     }
   }
@@ -246,10 +230,10 @@ function HiddenPreheader({ text }: { text?: string }) {
 }
 
 function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBrowserUrl }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string; viewInBrowserUrl?: string }) {
-  const logoUrl = getLogoUrl(orgInfo?.logoUrl);
-  const supportEmail = orgInfo?.supportEmail || "support@yardpass.tech";
+  const supportEmail = orgInfo?.supportEmail || "support@liventix.tech";
   const currentYear = new Date().getFullYear();
-  const homepageUrl = orgInfo?.websiteUrl || baseUrl();
+  const homepageUrl = baseUrl(); // Always use Liventix homepage
+  const logoUrl = getLogoUrl(); // Always use Liventix logo only (small, neat size)
 
   return React.createElement(
     "html",
@@ -267,7 +251,7 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
         { type: "text/css" },
         `body{margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;word-wrap:break-word}table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%!important}img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;max-width:100%!important}td,th{padding:8px;word-wrap:break-word}*{box-sizing:border-box}.responsive-banner{width:100%!important;max-width:100%!important}.mobile-card{padding:16px!important;margin-bottom:16px!important}.mobile-text{font-size:14px!important;line-height:1.6!important}.mobile-title{font-size:18px!important;line-height:1.3!important}.mobile-button{width:100%!important;max-width:100%!important;display:block!important;padding:14px 20px!important;font-size:16px!important;margin:8px 0!important}@media only screen and (max-width:640px){body{padding:0!important}.email-container{max-width:100%!important;width:100%!important;margin:0!important;border-radius:0!important}.email-padding{padding:20px 16px!important}.email-header-padding{padding:20px 16px!important}.email-footer-padding{padding:20px 16px!important}.responsive-img{max-width:100%!important;height:auto!important;display:block!important}.responsive-text{font-size:14px!important;line-height:1.6!important}.responsive-title{font-size:22px!important;line-height:1.3!important}.responsive-banner{padding:24px 16px!important;margin-bottom:20px!important}.responsive-banner h1{font-size:24px!important;line-height:1.2!important}.responsive-banner p{font-size:15px!important}.responsive-button{width:100%!important;max-width:100%!important;display:block!important;padding:14px 20px!important;font-size:16px!important;margin:8px 0!important}.hide-mobile{display:none!important;max-height:0!important;overflow:hidden!important;mso-hide:all}table[class="responsive-table"]{width:100%!important}td[class="responsive-table"]{display:block!important;width:100%!important;text-align:left!important;padding:10px 0!important}table[class="mobile-stack"]{width:100%!important}table[class="mobile-stack"] td{display:block!important;width:100%!important;text-align:left!important;padding:6px 0!important}table[class="mobile-stack"] td:first-child{font-weight:600!important;color:#64748b!important;font-size:12px!important;text-transform:uppercase!important;letter-spacing:0.5px!important}.mobile-card{padding:16px!important;margin-bottom:16px!important;border-radius:12px!important}.mobile-card h3{font-size:16px!important;margin:0 0 12px 0!important}.mobile-card table td{font-size:14px!important;padding:6px 0!important}}@media only screen and (max-width:480px){.email-padding{padding:16px 12px!important}.email-header-padding{padding:16px 12px!important}.email-footer-padding{padding:16px 12px!important}.responsive-title{font-size:20px!important}.responsive-text{font-size:13px!important}.responsive-banner{padding:20px 14px!important;margin-bottom:18px!important}.responsive-banner h1{font-size:22px!important;line-height:1.2!important}.responsive-banner p{font-size:14px!important}.responsive-button{font-size:15px!important;padding:12px 18px!important}img[class="logo"]{max-width:200px!important;height:auto!important}.mobile-card{padding:14px!important;margin-bottom:14px!important}.mobile-card h3{font-size:15px!important}.mobile-card table td{font-size:13px!important}}@media only screen and (min-width:641px){.email-container{max-width:640px!important}}@media only screen and (max-width:320px){.responsive-title{font-size:18px!important}.responsive-text{font-size:12px!important}.responsive-banner h1{font-size:20px!important;line-height:1.2!important}.responsive-banner{padding:16px 12px!important}.responsive-banner p{font-size:13px!important}.mobile-card{padding:12px!important}}`,
       ),
-      React.createElement("title", {}, orgInfo?.name ? `${orgInfo.name} · YardPass` : "YardPass Ticket Confirmation"),
+      React.createElement("title", {}, orgInfo?.name ? `${orgInfo.name} · Liventix` : "Liventix Ticket Confirmation"),
     ),
     React.createElement(
       "body",
@@ -326,14 +310,14 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
                     React.createElement(
                       "a",
                       { href: homepageUrl, style: { textDecoration: "none", display: "flex", alignItems: "center" } },
-                      // Logo image with explicit dimensions for email clients
+                      // Logo image with explicit dimensions for email clients (small, neat size)
                       React.createElement("img", {
                         src: logoUrl,
-                        alt: orgInfo?.name || "YardPass",
+                        alt: "Liventix",
                         className: "logo responsive-img",
                         style: { 
-                          height: "40px", 
-                          maxWidth: "180px", 
+                          height: "28px", 
+                          maxWidth: "120px", 
                           width: "auto", 
                           display: "block",
                           border: "0",
@@ -342,8 +326,8 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
                           margin: "0",
                           padding: "0",
                         },
-                        width: "180",
-                        height: "40",
+                        width: "120",
+                        height: "28",
                         loading: "eager",
                         decoding: "sync",
                       }),
@@ -351,13 +335,13 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
                       React.createElement("span", {
                         style: {
                           display: "none",
-                          fontSize: "18px",
+                          fontSize: "16px",
                           fontWeight: "600",
                           color: "#0f172a",
                           marginLeft: "8px",
                         },
                         className: "logo-text-fallback",
-                      }, orgInfo?.name || "YardPass"),
+                      }, "Liventix"),
                     ),
                   ),
                   viewInBrowserUrl ? React.createElement(
@@ -373,47 +357,30 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
               ),
             ),
           ),
-          // org card
-          orgInfo
+          // Event details link (if available)
+          eventInfo?.slug
             ? React.createElement(
-                "table",
+                "div",
                 {
-                  width: "100%",
-                  cellPadding: 0,
-                  cellSpacing: 0,
-                  role: "presentation",
-                  style: { borderBottom: "1px solid #e2e8f0", backgroundColor: "#fafafa" },
+                  style: {
+                    padding: "16px 32px",
+                    backgroundColor: "#fafafa",
+                    borderBottom: "1px solid #e2e8f0",
+                    textAlign: "center",
+                  },
                 },
                 React.createElement(
-                  "tr",
-                  {},
-                  React.createElement(
-                    "td",
-                    { style: { padding: "20px 32px", width: "64px" }, valign: "top" },
-                    orgInfo.logoUrl
-                      ? React.createElement("img", {
-                          src: orgInfo.logoUrl,
-                          alt: orgInfo.name,
-                          style: { width: "48px", height: "48px", borderRadius: "10px", objectFit: "cover" },
-                        })
-                      : null,
-                  ),
-                  React.createElement(
-                    "td",
-                    { style: { padding: "20px 32px 20px 0" } },
-                    React.createElement(
-                      "div",
-                      { style: { fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "4px" } },
-                      orgInfo.name,
-                    ),
-                    eventInfo?.slug
-                      ? React.createElement(
-                          "a",
-                          { href: `${baseUrl()}/event/${eventInfo.slug}`, style: { fontSize: "13px", color: "#6366f1", textDecoration: "none" } },
-                          "View Event Details →",
-                        )
-                      : null,
-                  ),
+                  "a",
+                  {
+                    href: `${baseUrl()}/e/${eventInfo.slug}`,
+                    style: {
+                      fontSize: "13px",
+                      color: "#6366f1",
+                      textDecoration: "none",
+                      fontWeight: "500",
+                    },
+                  },
+                  "View Event Details →",
                 ),
               )
             : null,
@@ -433,17 +400,17 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
                 "Questions? Contact us at ",
                 React.createElement(
                   "a",
-                  { href: `mailto:${orgInfo?.supportEmail || "support@yardpass.tech"}`, style: { color: "#6366f1", textDecoration: "none" } },
-                  orgInfo?.supportEmail || "support@yardpass.tech",
+                  { href: `mailto:${orgInfo?.supportEmail || "support@liventix.tech"}`, style: { color: "#6366f1", textDecoration: "none" } },
+                  orgInfo?.supportEmail || "support@liventix.tech",
                 ),
               ),
-              React.createElement("p", { style: { margin: "0 0 16px 0", fontSize: "12px" } }, `© ${currentYear} YardPass. All rights reserved.`),
+              React.createElement("p", { style: { margin: "0 0 16px 0", fontSize: "12px" } }, `© ${currentYear} Liventix. All rights reserved.`),
               React.createElement(
                 "div",
                 { style: { fontSize: "11px", color: "#94a3b8" } },
-                React.createElement("a", { href: "https://yardpass.tech/privacy", style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Privacy Policy"),
+                React.createElement("a", { href: "https://liventix.tech/privacy", style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Privacy Policy"),
                 " • ",
-                React.createElement("a", { href: "https://yardpass.tech/terms", style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Terms of Service"),
+                React.createElement("a", { href: "https://liventix.tech/terms", style: { color: "#94a3b8", textDecoration: "none", margin: "0 8px" } }, "Terms of Service"),
               ),
             ),
           ),
@@ -516,53 +483,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo, ticketPdfUrl, 
       { className: "responsive-banner", style: { background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)", color: "#ffffff", padding: "32px 24px", borderRadius: "14px", marginBottom: "28px", textAlign: "center" } },
       React.createElement("div", { style: { fontSize: "40px", marginBottom: "12px" } }, "🎉"),
       React.createElement("h1", { style: { margin: "0 0 8px 0", fontSize: "28px", fontWeight: 700 } }, "Purchase Confirmed!"),
-      React.createElement("p", { style: { margin: "0 0 24px 0", fontSize: "16px", opacity: 0.95 } }, `Your tickets to ${title} are confirmed and ready to scan at the door.`),
-      // Primary CTA: Download Ticket PDF
-      pdfUrl ? React.createElement(
-        "a",
-        {
-          href: pdfUrl,
-          className: "responsive-button",
-          style: {
-            display: "inline-block",
-            backgroundColor: "#ffffff",
-            color: "#007bff",
-            padding: "14px 28px",
-            borderRadius: "8px",
-            textDecoration: "none",
-            fontSize: "16px",
-            fontWeight: 600,
-            marginBottom: "12px",
-            width: "100%",
-            maxWidth: "280px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-          },
-        },
-        "📥 Download Ticket PDF",
-      ) : null,
-      // Secondary CTA: View Tickets Online
-      portalUrl ? React.createElement(
-        "a",
-        {
-          href: portalUrl,
-          className: "responsive-button",
-          style: {
-            display: "inline-block",
-            backgroundColor: "transparent",
-            color: "#ffffff",
-            border: "2px solid #ffffff",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            textDecoration: "none",
-            fontSize: "15px",
-            fontWeight: 600,
-            width: "100%",
-            maxWidth: "280px",
-            marginTop: "8px",
-          },
-        },
-        "View Tickets Online",
-      ) : null,
+      React.createElement("p", { style: { margin: "0 0 24px 0", fontSize: "16px", opacity: 0.95 } }, `Your tickets to ${title} are confirmed and ready to scan at the door. Your ticket PDF is attached to this email.`),
     ),
     // 2. PERSONALIZED GREETING
     React.createElement(
@@ -643,7 +564,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo, ticketPdfUrl, 
       React.createElement(
         "ol",
         { className: "mobile-text", style: { margin: 0, paddingLeft: "20px", color: "#475569", fontSize: "14px", lineHeight: 1.8 } },
-        React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Download your PDF"), " — Click Download Ticket PDF at the top of this email to save your tickets."),
+        React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Your ticket PDF is attached"), " — The PDF file is included with this email. Save it to your device for easy access."),
         React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Bring the QR code"), " — Open the PDF on your phone or print it. The QR code in the PDF will be scanned at check-in."),
         React.createElement("li", { style: { marginBottom: "12px" } }, React.createElement("strong", {}, "Bring a valid ID"), " — Some events may require ID that matches the ticket holder name."),
       ),
@@ -735,8 +656,8 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     format: 'a4'
   });
 
-  // YardPass Brand Colors - Blue Theme Only
-  const primaryBlue = [3, 169, 244];     // #03A9F4 - YardPass Blue
+  // Liventix Brand Colors - Blue Theme Only
+  const primaryBlue = [3, 169, 244];     // #03A9F4 - Liventix Blue
   const lightBlue = [129, 212, 250];     // #81D4FA - Light blue (highlights)
   const darkBlue = [2, 136, 209];        // #0288D1 - Dark blue (accents)
   const mutedGray = [151, 148, 165];     // #9794A5 - Muted gray
@@ -763,7 +684,7 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.text(orgInfo?.name || 'YardPass', 105, 15, { align: 'center' });
+    doc.text('Liventix', 105, 15, { align: 'center' });
     
     // Event title
     doc.setFontSize(16);
@@ -893,8 +814,8 @@ async function generateTicketPDF(ticketIds: string[], eventTitle: string, custom
     doc.setFontSize(7);
     doc.setTextColor(...mutedGray);
     const footerText = orgInfo?.name 
-      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@yardpass.tech'} - yardpass.tech`
-      : 'YardPass - support@yardpass.tech - yardpass.tech';
+      ? `${orgInfo.name} - ${orgInfo.supportEmail || 'support@liventix.tech'} - liventix.tech`
+      : 'Liventix - support@liventix.tech - liventix.tech';
     doc.text(footerText, 105, 290, { align: 'center' });
   });
 
@@ -1026,7 +947,7 @@ async function generateTicketHTML(ticketIds: string[], eventTitle: string, custo
         (ticket.id as string).slice(0, 8)
       }</div></div></div>`;
     })
-    .join("")}<div class="footer"><strong>YardPass</strong><br/>For support, visit yardpass.tech or email support@yardpass.tech<br/>This ticket is valid for entry and cannot be duplicated.</div></div></body></html>`;
+    .join("")}<div class="footer"><strong>Liventix</strong><br/>For support, visit liventix.tech or email support@liventix.tech<br/>This ticket is valid for entry and cannot be duplicated.</div></div></body></html>`;
 
   return {
     content: btoa(unescape(encodeURIComponent(html))),
@@ -1136,6 +1057,40 @@ const handler = async (req: Request): Promise<Response> => {
       }
     } else {
       logStep("Skipping QR code generation (no ticketIds)", { requestId, isRsvpOnly: data.isRsvpOnly });
+    }
+
+    // Idempotency check: Check email_queue for recent email sent for this order
+    if (data.orderId) {
+      const { data: recentEmail } = await supabase
+        .from("email_queue")
+        .select("id, sent_at")
+        .eq("metadata->>orderId", data.orderId)
+        .eq("email_type", "purchase_confirmation")
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (recentEmail?.sent_at) {
+        const sentTime = new Date(recentEmail.sent_at).getTime();
+        const now = Date.now();
+        // If email was sent in last 5 minutes, skip (prevents duplicates from rapid webhook calls)
+        if (now - sentTime < 5 * 60 * 1000) {
+          logStep("✅ Email already sent for this order (idempotent skip)", { requestId, orderId: data.orderId, sentAt: recentEmail.sent_at });
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              skipped: true, 
+              message: "Email already sent for this order",
+              orderId: data.orderId 
+            }),
+            { 
+              status: 200, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
+      }
     }
 
     // Generate wallet pass links (Apple/Google Wallet)
@@ -1260,17 +1215,17 @@ const handler = async (req: Request): Promise<Response> => {
     const idemKey = req.headers.get("Idempotency-Key") ?? requestId;
 
     const emailPayload: Record<string, unknown> = {
-      from: "YardPass <hello@yardpass.tech>",
+      from: "Liventix <hello@liventix.tech>",
       to: [data.customerEmail],
       subject: data.isRsvpOnly 
         ? `✅ RSVP Confirmed - ${eventInfo?.title || data.eventTitle}`
-        : `✅ Your YardPass tickets are ready for ${eventInfo?.title || data.eventTitle}`,
+        : `✅ Your Liventix tickets are ready for ${eventInfo?.title || data.eventTitle}`,
       html,
       text,
-      reply_to: orgInfo?.supportEmail || "support@yardpass.tech",
+      reply_to: orgInfo?.supportEmail || "support@liventix.tech",
       headers: {
         "X-Entity-Ref-ID": idemKey, // many ESPs use this for idempotency
-        "List-Unsubscribe": `<mailto:${orgInfo?.supportEmail || "support@yardpass.tech"}>`,
+        "List-Unsubscribe": `<mailto:${orgInfo?.supportEmail || "support@liventix.tech"}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
       tags: [
@@ -1318,6 +1273,29 @@ const handler = async (req: Request): Promise<Response> => {
       to: data.customerEmail,
       orderId: data.orderId
     });
+
+    // Record email in email_queue for idempotency tracking
+    if (data.orderId) {
+      try {
+        await supabase.from("email_queue").insert({
+          to_email: data.customerEmail,
+          subject: emailPayload.subject as string,
+          html: html,
+          email_type: "purchase_confirmation",
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          metadata: {
+            orderId: data.orderId,
+            eventId: data.eventId,
+            requestId,
+            resendEmailId: payload.id,
+          },
+        });
+      } catch (queueErr) {
+        // Non-fatal - log but don't fail
+        console.error("Failed to record email in queue (non-fatal):", queueErr);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, requestId, ...payload }), {
       status: 200,

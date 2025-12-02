@@ -477,6 +477,7 @@ export default function OrganizationProfilePage() {
                     targetType="organizer"
                     targetId={organization.id}
                     enablePendingReview={isAdmin}
+                    showFollowing={false}
                   />
                   <FollowButton targetType="organizer" targetId={organization.id} size="default" />
                 </div>

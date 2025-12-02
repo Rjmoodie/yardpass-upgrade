@@ -27,6 +27,7 @@ import { DeferredImports } from '@/components/Perf/DeferredImports';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { usePlatform } from '@/hooks/usePlatform';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+// import { CookieConsentBanner } from '@/components/CookieConsentBanner'; // Temporarily removed - will revisit later
 
 // Scroll restoration helper - single source of truth
 function ScrollToTopOnRouteChange() {
@@ -72,6 +73,7 @@ const SearchPageNew = lazy(() => import('@/pages/new-design/SearchPage'));
 const EventDetailsPageNew = lazy(() => import('@/pages/new-design/EventDetailsPage'));
 const MessagesPageNew = lazy(() => import('@/pages/new-design/MessagesPage'));
 const NotificationsPageNew = lazy(() => import('@/pages/new-design/NotificationsPage'));
+const SettingsPage = lazy(() => import('@/pages/new-design/SettingsPage'));
 const CreateEventFlow = lazy(() =>
   import('@/components/CreateEventFlow').then((m) => ({ default: m.CreateEventFlow })),
 );
@@ -88,6 +90,7 @@ const LoadingSpinner = lazy(() => import('@/components/dashboard/LoadingSpinner'
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('@/pages/RefundPolicy'));
+const CommunityGuidelines = lazy(() => import('@/pages/CommunityGuidelines'));
 const DeploymentReadinessPage = lazy(() => import('@/pages/DeploymentReadinessPage'));
 const VideoLabPage = lazy(() => import('@/pages/dev/VideoLabPage'));
 const OrgInvitePage = lazy(() => import('@/pages/OrgInvitePage'));
@@ -490,6 +493,8 @@ function AppContent() {
               <Route path="/terms" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/terms-of-service" element={<TermsOfService onBack={() => navigate('/')} />} />
               <Route path="/refund-policy" element={<RefundPolicy onBack={() => navigate('/')} />} />
+              <Route path="/community-guidelines" element={<CommunityGuidelines onBack={() => navigate('/')} />} />
+              <Route path="/guidelines" element={<CommunityGuidelines onBack={() => navigate('/')} />} />
               <Route path="/deployment-readiness" element={<DeploymentReadinessPage onBack={() => navigate('/')} />} />
               
               {/* Dev Routes - Only in development */}
@@ -610,6 +615,16 @@ function AppContent() {
                   <AuthGuard>
                     <Suspense fallback={<PageLoadingSpinner />}>
                       <NotificationsPageNew />
+                    </Suspense>
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <AuthGuard>
+                    <Suspense fallback={<PageLoadingSpinner />}>
+                      <SettingsPage />
                     </Suspense>
                   </AuthGuard>
                 }
@@ -843,6 +858,7 @@ export default function App() {
       {/* ✅ REMOVED DUPLICATE: AuthProvider already wraps App in main.tsx */}
       <ProfileViewProvider>
         <AppContent />
+        {/* <CookieConsentBanner /> */} {/* Temporarily removed - will revisit later */}
       </ProfileViewProvider>
     </ThemeProvider>
   );

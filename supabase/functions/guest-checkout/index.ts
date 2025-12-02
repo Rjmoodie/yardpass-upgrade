@@ -26,7 +26,7 @@ const corsHeaders = {
 interface GuestCheckoutItem {
   tier_id: string;
   quantity: number;
-  unit_price_cents?: number;
+  unit_price_cents?: number; // ⚠️ DEPRECATED: Ignored for security. Price always comes from database.
 }
 
 interface GuestCheckoutRequest {
@@ -448,10 +448,25 @@ serve(async (req) => {
       ? new Date(reservationResult.expires_at).toISOString()
       : new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
+    // ✅ SECURITY FIX: Always use database price, never trust client-provided price
+    // Log mismatch if client sends different price (for fraud monitoring)
     const totalFaceValueCents = items.reduce((sum, item) => {
       const tier = tierMap.get(item.tier_id)!;
-      const unitPrice = typeof item.unit_price_cents === "number" ? item.unit_price_cents : tier.price_cents;
-      return sum + unitPrice * item.quantity;
+      const dbPrice = tier.price_cents;
+      
+      // Log price mismatch for fraud monitoring (but always use DB price)
+      if (typeof item.unit_price_cents === "number" && item.unit_price_cents !== dbPrice) {
+        console.warn("[guest-checkout] ⚠️ Price mismatch detected (potential fraud attempt)", {
+          tier_id: item.tier_id,
+          client_price: item.unit_price_cents,
+          db_price: dbPrice,
+          event_id: eventId,
+          contact_email: normalizedEmail
+        });
+      }
+      
+      // Always use database price (security-critical)
+      return sum + dbPrice * item.quantity;
     }, 0);
 
     const pricing = buildPricingBreakdown(totalFaceValueCents, tiers[0]?.currency ?? "USD");

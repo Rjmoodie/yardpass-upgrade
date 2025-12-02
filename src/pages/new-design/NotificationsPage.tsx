@@ -84,10 +84,24 @@ export function NotificationsPageIntegrated() {
     else if (row.event_type?.includes('ticket')) type = 'ticket';
     else if (row.event_type?.includes('message')) type = 'message';
 
-    // Extract user info from data
-    const userName = row.data?.follower_name || row.data?.user_name || 'Someone';
-    const userAvatar = row.data?.user_avatar || '';
-    const userId = row.data?.follower_user_id || row.data?.user_id;
+    // Extract user/org info from data
+    // For ticket_purchase notifications, show organization name (the event host)
+    // Priority: org_name (for ticket_purchase) > follower_name > user_name > 'Someone'
+    let userName: string;
+    let userAvatar: string;
+    let userId: string | undefined;
+    
+    if (row.event_type === 'ticket_purchase') {
+      // For ticket purchases, show the organization name (event host)
+      userName = row.data?.org_name || 'Liventix';
+      userAvatar = row.data?.org_logo || '';
+      userId = row.data?.org_id;
+    } else {
+      // For other notifications, use follower/user info
+      userName = row.data?.follower_name || row.data?.user_name || 'Someone';
+      userAvatar = row.data?.user_avatar || '';
+      userId = row.data?.follower_user_id || row.data?.user_id;
+    }
 
     return {
       id: row.id,
@@ -119,6 +133,7 @@ export function NotificationsPageIntegrated() {
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
+        .neq('event_type', 'payment_completed') // Exclude payment notifications
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -155,6 +170,8 @@ export function NotificationsPageIntegrated() {
         },
         (payload) => {
           const newRow = payload.new as NotificationRow;
+          // Exclude payment_completed notifications
+          if (newRow.event_type === 'payment_completed') return;
           const newNotification = transformNotification(newRow);
           setNotifications(prev => [newNotification, ...prev]);
         }

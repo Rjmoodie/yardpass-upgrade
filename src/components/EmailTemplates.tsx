@@ -101,7 +101,9 @@ interface BaseEmailLayoutProps {
 }
 
 const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, preheaderText }) => {
-  const liventixLogo = 'https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png';
+  // Logo URL - Supabase Storage path
+  // File is in the "Liventix Official" bucket, inside "org-images" folder
+  const liventixLogo = orgInfo?.logoUrl || 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix Official/org-images/liventix-logo.png';
   const currentYear = new Date().getFullYear();
   const supportEmail = orgInfo?.supportEmail || 'support@liventix.tech';
 
@@ -177,6 +179,10 @@ const BaseEmailLayout: React.FC<BaseEmailLayoutProps> = ({ children, orgInfo, pr
               •
               <a href="https://liventix.tech/terms" style={{ color: '#94a3b8', textDecoration: 'none', margin: '0 8px' }}>
                 Terms of Service
+              </a>
+              •
+              <a href="https://liventix.tech/community-guidelines" style={{ color: '#94a3b8', textDecoration: 'none', margin: '0 8px' }}>
+                Community Guidelines
               </a>
             </div>
           </div>

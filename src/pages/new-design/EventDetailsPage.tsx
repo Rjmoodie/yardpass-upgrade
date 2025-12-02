@@ -228,7 +228,12 @@ export function EventDetailsPageIntegrated() {
               .eq('org_id', data.owner_context_id as string);
             
             if (membersError) {
-              console.error('[EventDetailsPage] Error fetching org members:', membersError);
+              // Only log non-permission errors (permission errors are expected for non-members)
+              if (membersError.code !== '42501' && membersError.code !== 'PGRST301') {
+                console.error('[EventDetailsPage] Error fetching org members:', membersError);
+              }
+              // If user doesn't have permission, we'll just use the creator as organizer
+              // This is fine - non-members don't need to see all org members
             } else {
               const orgMemberIds = (members ?? []).map((m: any) => m.user_id);
               // Add org members (avoid duplicates if creator is also a member)

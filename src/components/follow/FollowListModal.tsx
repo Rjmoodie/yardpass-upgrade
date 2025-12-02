@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,6 +21,7 @@ interface FollowListModalProps {
 export function FollowListModal({ open, onOpenChange, targetType, targetId, direction, includePending = false }: FollowListModalProps) {
   const { rows, loading, reload } = useFollowList({ targetType, targetId, direction, includePending, enabled: open });
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [updating, setUpdating] = useState<string | null>(null);
 
   const title = useMemo(() => {
@@ -118,10 +120,12 @@ export function FollowListModal({ open, onOpenChange, targetType, targetId, dire
                       variant="outline"
                       size="sm"
                       onClick={() => {
+                        onOpenChange(false); // Close modal first
                         if (row.actor_type === 'organization') {
-                          window.location.assign(`/org/${row.actor_id}`);
+                          navigate(`/org/${row.actor_id}`);
                         } else {
-                          window.location.assign(`/u/${row.actor_id}`);
+                          // Use profile route which accepts both username and userId
+                          navigate(`/profile/${row.actor_id}`);
                         }
                       }}
                     >

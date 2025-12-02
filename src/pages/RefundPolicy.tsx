@@ -1,5 +1,4 @@
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface RefundPolicyProps {
   onBack: () => void;
@@ -7,7 +6,7 @@ interface RefundPolicyProps {
 
 export function RefundPolicy({ onBack }: RefundPolicyProps) {
   return (
-    <div className="h-full bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col text-xs sm:text-sm md:text-[15px]">
       {/* Header */}
       <div className="border-b bg-card p-4">
         <div className="flex items-center gap-4">
@@ -18,150 +17,206 @@ export function RefundPolicy({ onBack }: RefundPolicyProps) {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1>Refund Policy</h1>
-            <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
+            <h1 className="text-base md:text-lg font-semibold">Refund Policy</h1>
+            <p className="text-[11px] sm:text-xs text-muted-foreground">
+              Last updated: {new Date().toLocaleDateString()}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6 prose prose-sm max-w-none">
-        <div className="space-y-6">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-3xl mx-auto space-y-6 leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold mb-3">1. General Refund Policy</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Liventix facilitates ticket sales between event organizers and attendees. Refund policies are primarily set by individual event organizers, but we provide the following general guidelines:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li>Refunds are generally available up to 7 days before an event</li>
-                <li>Platform fees may not be refundable depending on the circumstances</li>
-                <li>All refund requests are processed through our secure platform</li>
-                <li>Refund timeframes depend on your payment method and financial institution</li>
-              </ul>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">1. Overview</h2>
+            <p className="text-muted-foreground">
+              Liventix provides tools for event organizers to sell tickets and manage attendance. Unless
+              expressly stated otherwise, Liventix is not the organizer of events listed on the platform.
+              Refund policies for tickets are primarily determined and controlled by the individual event
+              organizers, subject to applicable law and the terms described below.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">2. Organizer-Set Policies</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Event organizers may set their own refund policies, which will be clearly displayed before ticket purchase. Common organizer policies include:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li><strong>Standard Refund:</strong> Full refund available up to 7 days before the event</li>
-                <li><strong>Flexible Refund:</strong> Full refund available up to 24 hours before the event</li>
-                <li><strong>No Refund:</strong> All sales are final (often for heavily discounted tickets)</li>
-                <li><strong>Custom Policy:</strong> Organizer-specific terms and conditions</li>
-              </ul>
-              <p>Always review the specific refund policy for each event before purchasing tickets.</p>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">2. Organizer-Defined Policies</h2>
+            <p className="text-muted-foreground mb-2">
+              Each event may have its own refund policy, which will be displayed in the event details and/or
+              at checkout. By purchasing a ticket, you agree to the organizer&apos;s refund policy for that
+              event. Common approaches include:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+              <li>
+                <strong>Standard Refund:</strong> Full or partial refund available up to a defined number of
+                days before the event.
+              </li>
+              <li>
+                <strong>Flexible Refund:</strong> Refunds available closer to the event date (for example,
+                within 24–48 hours of the start time).
+              </li>
+              <li>
+                <strong>No-Refund Policy:</strong> All sales are final, except where required by law or in
+                specific exceptional circumstances.
+              </li>
+              <li>
+                <strong>Custom Policy:</strong> Organizers may define custom conditions and timelines for
+                refunds or credits.
+              </li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              Always review the refund terms for each event before completing your purchase. If no explicit
+              policy is stated, a default policy may apply as set by Liventix or required by law.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">3. Event Cancellations</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>If an event is cancelled by the organizer:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li>You are entitled to a full refund including all fees</li>
-                <li>Refunds are processed automatically within 5-10 business days</li>
-                <li>You will be notified via email and in-app notification</li>
-                <li>Original payment method will be credited</li>
-              </ul>
-              <p>If an event is postponed, you may choose between attending the new date or requesting a full refund.</p>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">3. Event Cancellations and Changes</h2>
+            <p className="text-muted-foreground mb-2">
+              If an organizer cancels or significantly changes an event (such as date, time, or venue), the
+              following generally apply:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+              <li>
+                <strong>Full Cancellation:</strong> Attendees are typically entitled to a refund of the ticket
+                price. Depending on the circumstances and applicable law, service fees may also be refunded.
+              </li>
+              <li>
+                <strong>Rescheduled Events:</strong> Tickets may remain valid for the new date. Organizers may
+                choose to offer refunds or credits if you cannot attend the rescheduled event.
+              </li>
+              <li>
+                <strong>Partial Changes:</strong> Material changes (such as major lineup changes) may qualify
+                for refunds or credits as described in the event&apos;s policy or required by law.
+              </li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              Liventix may assist in notifying attendees of cancellations or changes, but the organizer is
+              responsible for the underlying decision and its consequences.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">4. Platform Fees</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Liventix platform fees (~3.7% + $1.79 per ticket) are handled as follows:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li><strong>Event Cancellation:</strong> Platform fees are fully refunded</li>
-                <li><strong>Customer-Initiated Refund:</strong> Platform fees may be retained to cover processing costs</li>
-                <li><strong>Organizer Goodwill Refund:</strong> Platform fees are refunded if processed within 24 hours</li>
-                <li><strong>Policy Violation:</strong> Full refund including platform fees</li>
-              </ul>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">4. Platform Service Fees</h2>
+            <p className="text-muted-foreground mb-2">
+              In addition to ticket prices, Liventix may charge service fees and/or processing fees, which are
+              disclosed during checkout. Treatment of these fees in refund scenarios may vary:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+              <li>
+                <strong>Organizer or Platform Cancellation:</strong> In many cases, Liventix aims to refund
+                ticket prices and may, at its discretion or where required by law, refund service fees and
+                applicable taxes.
+              </li>
+              <li>
+                <strong>Attendee-Initiated Refunds:</strong> Where refunds are allowed and initiated by the
+                attendee under the event&apos;s policy, service fees may be non-refundable to cover platform
+                and processing costs, unless otherwise stated or required by law.
+              </li>
+              <li>
+                <strong>Goodwill and Error Corrections:</strong> For clear platform errors or duplicate
+                purchases, Liventix may choose to refund certain fees on a case-by-case basis.
+              </li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              Fee treatment may differ by jurisdiction and payment method, and may be subject to limitations of
+              payment processors and organizers&apos; available funds.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">5. How to Request a Refund</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>To request a refund:</p>
-              <ol className="list-decimal pl-6 space-y-1">
-                <li>Go to your profile and find the ticket in "Your Tickets"</li>
-                <li>Click "Request Refund" if available (based on the event's policy)</li>
-                <li>Select your reason for the refund request</li>
-                <li>Submit the request for organizer review</li>
-                <li>Receive confirmation and tracking information via email</li>
-              </ol>
-              <p>If the "Request Refund" option is not available, the event has a no-refund policy or the deadline has passed.</p>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">5. How to Request a Refund</h2>
+            <p className="text-muted-foreground mb-2">
+              Where refund requests are permitted under the applicable policy, you can generally request a
+              refund through the Services:
+            </p>
+            <ol className="list-decimal pl-6 space-y-1 text-muted-foreground">
+              <li>Open your account and navigate to <q>Your Tickets</q> or a similar section.</li>
+              <li>Select the relevant event and ticket.</li>
+              <li>If available, click <q>Request Refund</q> and follow the prompts.</li>
+              <li>Select a reason and submit your request.</li>
+            </ol>
+            <p className="text-muted-foreground mt-2">
+              If the refund option is not available, the event may have a no-refund policy, or the refund
+              window may have expired. In some cases, you may still contact support for review, especially in
+              extraordinary circumstances (such as serious illness, travel restrictions, or platform error).
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">6. Refund Processing Times</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Refund processing times vary by payment method:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li><strong>Credit Cards:</strong> 5-10 business days</li>
-                <li><strong>Debit Cards:</strong> 5-10 business days</li>
-                <li><strong>Digital Wallets:</strong> 1-3 business days</li>
-                <li><strong>Bank Transfers:</strong> 3-7 business days</li>
-              </ul>
-              <p>Processing times may be longer during peak periods or holidays. You will receive email confirmation when the refund is processed.</p>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">6. Processing Times</h2>
+            <p className="text-muted-foreground mb-2">
+              Once a refund is approved and processed, the time it takes for funds to appear in your account
+              depends on your payment method and financial institution. Typical timelines (subject to change)
+              include:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+              <li>Credit and debit cards: typically 5–10 business days</li>
+              <li>Digital wallets: typically 1–3 business days</li>
+              <li>Bank transfers: typically 3–7 business days</li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              Delays may occur due to processing by payment processors, banks, or holidays. Liventix is not
+              responsible for delays outside of our direct control once the refund has been submitted to the
+              payment provider.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">7. Special Circumstances</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>We may provide refunds outside of standard policies in cases of:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li><strong>Medical Emergency:</strong> With appropriate documentation</li>
-                <li><strong>Travel Restrictions:</strong> Government-imposed restrictions preventing attendance</li>
-                <li><strong>Platform Error:</strong> Technical issues causing incorrect purchases</li>
-                <li><strong>Fraud Prevention:</strong> Unauthorized transactions</li>
-                <li><strong>Organizer Violation:</strong> Events that violate our terms of service</li>
-              </ul>
-              <p>Each case is reviewed individually by our support team.</p>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">7. Special Circumstances and Exceptions</h2>
+            <p className="text-muted-foreground mb-2">
+              In addition to organizer policies, Liventix may review refunds outside of standard terms in
+              limited circumstances, such as:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+              <li>Documented medical emergencies or serious personal circumstances</li>
+              <li>Government-imposed travel or gathering restrictions</li>
+              <li>Clear platform or technical errors resulting in incorrect charges</li>
+              <li>Evidence of fraud or unauthorized use of your payment method</li>
+              <li>Events that violate our Terms of Service or Community Guidelines</li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              Any such accommodations are at the discretion of Liventix and/or the organizer, and do not
+              create an obligation to grant similar requests in the future.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">8. Denied Refund Requests</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Refund requests may be denied if:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li>The request is made after the deadline specified in the event's policy</li>
-                <li>You attended the event (check-in was recorded)</li>
-                <li>The event has a clearly stated no-refund policy</li>
-                <li>You violated event terms or were removed for misconduct</li>
-              </ul>
-              <p>If your refund is denied, you can contact our support team for review or appeal the decision.</p>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">8. Denials and Appeals</h2>
+            <p className="text-muted-foreground mb-2">
+              Refund requests may be denied, including when:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+              <li>The event has a clearly stated no-refund policy and no exception applies.</li>
+              <li>The refund window or deadline has passed.</li>
+              <li>Our records show that the ticket was used or check-in was completed.</li>
+              <li>The request conflicts with applicable law, payment processor rules, or fraud controls.</li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              If you believe a refund was improperly denied, you may contact our support team with additional
+              details, and we will review the request again where appropriate.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">9. Partial Refunds</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>In some cases, partial refunds may be offered:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li>Event changes that significantly impact the experience</li>
-                <li>Late refund requests processed as organizer goodwill</li>
-                <li>Platform technical issues affecting event access</li>
-                <li>Weather-related modifications for outdoor events</li>
-              </ul>
-            </div>
+            <h2 className="text-base md:text-lg font-semibold mb-2">9. Chargebacks and Disputes</h2>
+            <p className="text-muted-foreground">
+              If you initiate a chargeback or payment dispute through your bank or card issuer, this may delay
+              or complicate any refund process through the Services. We reserve the right to contest
+              chargebacks we believe are improper and to limit or terminate access to the Services for accounts
+              associated with fraudulent or abusive chargeback activity.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">10. Contact Support</h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>For refund-related questions or disputes, contact our support team:</p>
-              <ul className="list-none space-y-1">
-                <li>Email: refunds@liventix.com</li>
-                <li>Support Portal: Available in your account dashboard</li>
-                <li>Response Time: We aim to respond within 24 hours</li>
-              </ul>
-              <p>Please include your order number and relevant details when contacting support.</p>
+            <h2 className="text-base md:text-lg font-semibold mb-2">10. Contact</h2>
+            <div className="bg-muted p-4 rounded-lg text-muted-foreground space-y-1">
+              <p>For refund-related questions or support, you can contact:</p>
+              <p>
+                Email: <span className="font-mono">refunds@liventix.app</span>
+              </p>
+              <p>
+                General Support: <span className="font-mono">support@liventix.app</span>
+              </p>
             </div>
           </section>
         </div>

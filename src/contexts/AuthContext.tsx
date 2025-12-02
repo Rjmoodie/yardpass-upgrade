@@ -85,10 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // ✅ FIX: Handle refresh token errors gracefully
       if (error) {
-        console.error('[Auth] Session error:', error);
-        // If refresh token is invalid, clear session and sign out
+        // If refresh token is invalid, handle silently (expected when session expires)
         if (error.message?.includes('Refresh Token') || error.message?.includes('Invalid Refresh Token')) {
-          console.log('[Auth] Refresh token invalid, clearing session...');
+          // Only log in dev mode - this is expected behavior when session expires
+          if (import.meta.env.DEV) {
+            console.log('[Auth] Refresh token invalid, clearing session (this is normal when session expires)');
+          }
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -102,6 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabase.auth.signOut().catch(() => {
             // Ignore sign out errors
           });
+        } else {
+          // Log other auth errors (not refresh token related)
+          console.error('[Auth] Session error:', error);
         }
         setLoading(false);
         return;
@@ -152,7 +157,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // ✅ FIX: Handle token refresh errors
         if (event === 'TOKEN_REFRESHED' && !session) {
-          console.error('[Auth] Token refresh failed, signing out...');
+          // Only log in dev mode - this is expected when refresh token expires
+          if (import.meta.env.DEV) {
+            console.log('[Auth] Token refresh failed, clearing session (this is normal when session expires)');
+          }
           setSession(null);
           setUser(null);
           setProfile(null);

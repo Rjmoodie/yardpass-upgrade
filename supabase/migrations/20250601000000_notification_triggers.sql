@@ -391,14 +391,19 @@ AS $$
 DECLARE
   v_event_title TEXT;
   v_tier_name TEXT;
+  v_org_name TEXT;
+  v_org_logo TEXT;
+  v_owner_context_type TEXT;
+  v_owner_context_id UUID;
 BEGIN
   -- Guard: No owner
   IF NEW.owner_user_id IS NULL THEN
     RETURN NEW;
   END IF;
 
-  -- Get event info from events.events
-  SELECT title INTO v_event_title
+  -- Get event info from events.events (including owner context)
+  SELECT title, owner_context_type, owner_context_id 
+  INTO v_event_title, v_owner_context_type, v_owner_context_id
   FROM events.events
   WHERE id = NEW.event_id;
 
@@ -416,7 +421,14 @@ BEGIN
     v_tier_name := 'ticket';
   END IF;
 
-  -- Create notification
+  -- Get organization info if event is owned by an organization
+  IF v_owner_context_type = 'organization' AND v_owner_context_id IS NOT NULL THEN
+    SELECT name, logo_url INTO v_org_name, v_org_logo
+    FROM public.organizations
+    WHERE id = v_owner_context_id;
+  END IF;
+
+  -- Create notification with organization name (if available) or fallback
   PERFORM public.create_notification(
     p_user_id := NEW.owner_user_id,
     p_title := 'Ticket Confirmed! 🎫',
@@ -428,7 +440,11 @@ BEGIN
       'target_ticket_id', NEW.id,
       'target_event_id', NEW.event_id,
       'target_event_title', v_event_title,
-      'target_tier_name', v_tier_name
+      'target_tier_name', v_tier_name,
+      'org_name', COALESCE(v_org_name, 'Liventix'),
+      'org_logo', COALESCE(v_org_logo, ''),
+      'org_id', v_owner_context_id,
+      'user_id', NEW.owner_user_id
     )
   );
 

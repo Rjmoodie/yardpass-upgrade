@@ -264,7 +264,7 @@ export function NotificationSystem() {
       )
     );
 
-    // Update unread count immediately
+    // Update unread count immediately (optimistic)
     setUnreadCount(prev => Math.max(0, prev - 1));
 
     // Persist to database
@@ -278,9 +278,24 @@ export function NotificationSystem() {
         
         if (error) {
           console.error('Failed to mark notification as read:', error);
+          // Revert optimistic update on error
+          setUnreadCount(prev => prev + 1);
+        } else {
+          // Refresh count from database to ensure accuracy
+          const { count } = await supabase
+            .from('notifications')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .is('read_at', null);
+          
+          if (count !== null) {
+            setUnreadCount(count);
+          }
         }
       } catch (err) {
         console.error('Error marking notification as read:', err);
+        // Revert optimistic update on error
+        setUnreadCount(prev => prev + 1);
       }
     }
   }, [user]);
@@ -289,7 +304,8 @@ export function NotificationSystem() {
     // Immediately update UI state
     setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
     
-    // Update unread count immediately
+    // Update unread count immediately (optimistic)
+    const previousCount = unreadCount;
     setUnreadCount(0);
 
     // Persist to database
@@ -303,12 +319,27 @@ export function NotificationSystem() {
         
         if (error) {
           console.error('Failed to mark all notifications as read:', error);
+          // Revert optimistic update on error
+          setUnreadCount(previousCount);
+        } else {
+          // Refresh count from database to ensure accuracy
+          const { count } = await supabase
+            .from('notifications')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .is('read_at', null);
+          
+          if (count !== null) {
+            setUnreadCount(count);
+          }
         }
       } catch (err) {
         console.error('Error marking all notifications as read:', err);
+        // Revert optimistic update on error
+        setUnreadCount(previousCount);
       }
     }
-  }, [user]);
+  }, [user, unreadCount]);
 
   function removeNotification(id: string) {
     setNotifications(prev => {
@@ -390,6 +421,121 @@ export function NotificationSystem() {
     const actualUnreadCount = notifications.filter(notification => !notification.read).length;
     setUnreadCount(actualUnreadCount);
   }, [notifications]);
+
+  // Real-time subscription for notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('notification-system-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newRow = payload.new as NotificationRow;
+          // Exclude payment_completed notifications from count
+          if (newRow.event_type === 'payment_completed') {
+            return;
+          }
+          const newNotification = mapRowToNotification(newRow);
+          setNotifications(prev => {
+            const withoutDuplicate = prev.filter(notif => notif.id !== newNotification.id);
+            return [newNotification, ...withoutDuplicate].slice(0, 50);
+          });
+          
+          // Increment unread count if notification is unread
+          if (!newRow.read_at) {
+            setUnreadCount(prev => prev + 1);
+            console.log('[NotificationSystem] Incremented count, new count:', prev + 1);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updatedRow = payload.new as NotificationRow;
+          const updatedNotification = mapRowToNotification(updatedRow);
+          setNotifications(prev =>
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+          );
+          
+          // Update unread count when notification is marked as read
+          const wasUnread = !(payload.old as NotificationRow).read_at;
+          const isNowRead = !!updatedRow.read_at;
+          if (wasUnread && isNowRead) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          } else if (!wasUnread && !isNowRead) {
+            setUnreadCount(prev => prev + 1);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const deletedId = (payload.old as NotificationRow).id;
+          const wasUnread = !(payload.old as NotificationRow).read_at;
+          setNotifications(prev => prev.filter(n => n.id !== deletedId));
+          
+          // Decrement unread count if deleted notification was unread
+          if (wasUnread) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Load unread count directly from database
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let isMounted = true;
+
+    // Fetch unread count directly (excluding payment_completed notifications)
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .neq('event_type', 'payment_completed') // Exclude payment notifications from count
+      .is('read_at', null)
+      .then(({ count, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error('[NotificationSystem] Failed to load unread count', error);
+          return;
+        }
+        console.log('[NotificationSystem] Unread count:', count);
+        setUnreadCount(count || 0);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -482,8 +628,14 @@ export function NotificationSystem() {
           )}
           {unreadCount > 0 && (
             <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-semibold animate-pulse"
+              variant="danger" 
+              className="absolute -top-1 -right-1 h-5 w-5 min-w-[20px] rounded-full p-0 flex items-center justify-center text-xs font-semibold z-10 animate-pulse border-0"
+              style={{ 
+                fontSize: unreadCount > 99 ? '10px' : '11px',
+                lineHeight: '1',
+                backgroundColor: 'rgb(239, 68, 68)', // red-500
+                color: 'white'
+              }}
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>

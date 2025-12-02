@@ -85,8 +85,8 @@ export function ProfilePage() {
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
   
   const { following: userFollowing, followers } = useUserConnections(profile?.user_id);
-  const { tickets } = useTickets();
   const [totalFollowingCount, setTotalFollowingCount] = useState(0);
+  const { tickets } = useTickets();
   const { state: followState, follow, unfollow, loading: followLoading } = useFollow({
     type: 'user',
     id: profile?.user_id || '' // useFollow requires non-null string
@@ -134,27 +134,6 @@ export function ProfilePage() {
     }
   };
 
-  // Load total following count (includes users, events, organizers)
-  useEffect(() => {
-    if (!profile?.user_id) return;
-
-    const loadTotalFollowing = async () => {
-      try {
-        const { count, error } = await supabase
-          .from('follows')
-          .select('*', { count: 'exact', head: true })
-          .eq('follower_user_id', profile.user_id)
-          .eq('status', 'accepted');
-
-        if (error) throw error;
-        setTotalFollowingCount(count || 0);
-      } catch (err) {
-        console.error('Error loading total following count:', err);
-      }
-    };
-
-    loadTotalFollowing();
-  }, [profile?.user_id]);
 
   // Fetch profile data
   useEffect(() => {
@@ -214,6 +193,28 @@ export function ProfilePage() {
     trackProfileVisit(profile.user_id);
     console.log('[Purchase Intent] 👤 Tracked profile page visit for:', profile.user_id);
   }, [profile?.user_id, currentUser?.id, trackProfileVisit]);
+
+  // Load total following count (includes users, events, organizers)
+  useEffect(() => {
+    if (!profile?.user_id) return;
+
+    const loadTotalFollowing = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_user_id', profile.user_id)
+          .eq('status', 'accepted');
+
+        if (error) throw error;
+        setTotalFollowingCount(count || 0);
+      } catch (err) {
+        console.error('Error loading total following count:', err);
+      }
+    };
+
+    loadTotalFollowing();
+  }, [profile?.user_id]);
 
   // Fetch user posts
   useEffect(() => {
@@ -935,7 +936,7 @@ export function ProfilePage() {
                           size="sm"
                           onClick={() => {
                             setFollowModal(null);
-                            navigate(`/u/${connection.user_id}`);
+                            navigate(`/profile/${connection.user_id}`);
                           }}
                         >
                           View
@@ -949,6 +950,7 @@ export function ProfilePage() {
           </DialogContent>
         </Dialog>
       )}
+
     </FullScreenSafeArea>
   );
 }
