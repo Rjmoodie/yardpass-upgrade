@@ -60,8 +60,7 @@ if (!validationResult.success && !isTestEnv) {
 const readEnv = <K extends keyof RawEnv>(key: K): RawEnv[K] =>
   validationResult.success ? validationResult.data[key] : rawEnv[key];
 
-// Lovable does not support VITE_* environment variables
-// Using hardcoded Supabase configuration instead
+// Hardcoded Supabase configuration for production
 const SUPABASE_PROJECT_ID = 'yieslxnrfeqchbcmgavz';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZXNseG5yZmVxY2hiY21nYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MjY2NzgsImV4cCI6MjA3MjQwMjY3OH0.SZBbXL9fWSvm-u6Y3TptViQNrv5lnYe-SiRPdNeV2LY';
 

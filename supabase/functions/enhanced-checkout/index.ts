@@ -272,6 +272,44 @@ serve(async (req) => {
       ? `${event.title ?? "Event"} - ${tierMap.get(normalizedItems[0].tier_id)?.name ?? "Ticket"}`
       : `${event.title ?? "Event"} Tickets`;
 
+    // ✅ Handle FREE TICKETS - no Stripe payment needed
+    if (pricing.totalCents === 0) {
+      console.log('[enhanced-checkout] Free tickets - skipping Stripe, issuing directly');
+      
+      // Issue tickets directly
+      const { data: ticketResult, error: ticketError } = await supabaseService.rpc(
+        'issue_tickets_from_holds',
+        {
+          p_hold_ids: reservationResult.hold_ids ?? [],
+          p_order_id: orderId,
+        }
+      );
+
+      if (ticketError) {
+        console.error('[enhanced-checkout] Failed to issue free tickets:', ticketError);
+        throw new Error(`Failed to issue tickets: ${ticketError.message}`);
+      }
+
+      // Update order status to completed
+      await supabaseService
+        .from('orders')
+        .update({ status: 'completed' })
+        .eq('id', orderId);
+
+      // Return success for free tickets (no client_secret needed)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          free_order: true,
+          order_id: orderId,
+          checkout_session_id: checkoutSessionId,
+          tickets_issued: ticketResult?.tickets_issued ?? normalizedItems.reduce((sum, i) => sum + i.quantity, 0),
+          message: 'Free tickets issued successfully',
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ✅ Custom Checkout: Create PaymentIntent instead of Checkout Session
     // This allows full appearance theming on the client with Payment Element
     const paymentIntentConfig: Stripe.PaymentIntentCreateParams = {
@@ -501,19 +539,26 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[enhanced-checkout] error", error);
-    console.error("[enhanced-checkout] error stack", (error as Error)?.stack);
-    console.error("[enhanced-checkout] error details", JSON.stringify(error, null, 2));
+    const msg = (error as Error)?.message ?? "";
+    
+    // User-friendly error mapping
+    let userMsg = "We couldn't process your request. Please try again.";
+    let code = "CHECKOUT_FAILED";
+    
+    if (/sold out|unavailable|insufficient/i.test(msg)) {
+      userMsg = "Sorry, these tickets are no longer available.";
+      code = "TICKETS_UNAVAILABLE";
+    } else if (/expired/i.test(msg)) {
+      userMsg = "Your reservation has expired. Please start again.";
+      code = "RESERVATION_EXPIRED";
+    } else if (/auth|unauthorized/i.test(msg)) {
+      userMsg = "Please sign in again.";
+      code = "AUTH_REQUIRED";
+    }
+    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: (error as Error)?.message ?? "Unknown error",
-        error_code: "CHECKOUT_FAILED",
-        error_details: (error as any)?.details || (error as any)?.hint || null,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      JSON.stringify({ success: false, error: userMsg, error_code: code }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

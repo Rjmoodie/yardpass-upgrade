@@ -3,7 +3,59 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, handleCors, createResponse, createErrorResponse } from "../_shared/cors.ts";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORS Headers (inlined from _shared/cors.ts)
+// ═══════════════════════════════════════════════════════════════════════════════
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-idempotency-key",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const handleCors = (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  return null;
+};
+
+const createResponse = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const createErrorResponse = (message: string, status = 400) =>
+  new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Fee Calculation (inlined from _shared/pricing.ts)
+// ═══════════════════════════════════════════════════════════════════════════════
+const PLATFORM_PERCENT = 0.037;  // 3.7% of ticket price
+const PLATFORM_FLAT = 1.79;      // $1.79 per ticket
+const STRIPE_PERCENT = 0.029;    // 2.9%
+const STRIPE_FLAT = 0.30;        // $0.30
+
+function roundToCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function calculateGrossedUpCharge(ticketPrice: number) {
+  if (ticketPrice <= 0) {
+    return { buyerTotal: 0, processingFee: 0, stripeFee: 0, platformFee: 0, organizerPayout: 0 };
+  }
+  const platformFee = PLATFORM_FLAT + PLATFORM_PERCENT * ticketPrice;
+  const buyerTotalRaw = (ticketPrice + platformFee + STRIPE_FLAT) / (1 - STRIPE_PERCENT);
+  const buyerTotal = roundToCents(buyerTotalRaw);
+  const stripeFee = roundToCents(buyerTotal * STRIPE_PERCENT + STRIPE_FLAT);
+  const processingFee = roundToCents(buyerTotal - ticketPrice);
+  const organizerPayout = roundToCents(buyerTotal - stripeFee - platformFee);
+  return { buyerTotal, processingFee, stripeFee, platformFee: roundToCents(platformFee), organizerPayout };
+}
 
 interface CheckoutRequest {
   eventId: string;
@@ -61,12 +113,6 @@ serve(async (req) => {
 
     const normalizedEmail = user.email?.trim().toLowerCase() ?? null;
 
-    const { data: profile } = await supabaseService
-      .from("user_profiles")
-      .select("display_name, phone")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
     // Service-role client for DB reads/writes (bypass RLS for edge function operations)
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
@@ -77,6 +123,12 @@ serve(async (req) => {
       serviceRoleKey,
       { auth: { persistSession: false } },
     );
+
+    const { data: profile } = await supabaseService
+      .from("user_profiles")
+      .select("display_name, phone")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     let parsed: CheckoutRequest | null = null;
     try {
@@ -150,6 +202,7 @@ serve(async (req) => {
     logStep("Tickets reserved successfully", reservationResult);
 
     // Calculate fees with Stripe gross-up (organizer gets 100% of faceValue)
+    // Uses shared pricing module for consistency across all checkout flows
     const calculateTotal = (faceValueCents: number) => {
       // ✅ No processing fee for free tickets
       if (faceValueCents === 0) {
@@ -158,24 +211,15 @@ serve(async (req) => {
       }
       
       const faceValue = faceValueCents / 100;
-      
-      // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
-      const platformFeeTarget = faceValue * 0.066 + 1.79;
-      
-      // Net needed after Stripe fees
-      const totalNetNeeded = faceValue + platformFeeTarget;
-      
-      // Gross up for Stripe: 2.9% + $0.30
-      const totalCharge = (totalNetNeeded + 0.30) / 0.971;
-      
-      const totalCents = Math.round(totalCharge * 100);
+      const result = calculateGrossedUpCharge(faceValue);
+      const totalCents = Math.round(result.buyerTotal * 100);
       
       logStep("Fee calculation (with gross-up)", { 
         faceValueCents,
         faceValue,
-        platformFeeTarget,
-        totalNetNeeded,
-        totalCharge,
+        platformFee: result.platformFee,
+        processingFee: result.processingFee,
+        buyerTotal: result.buyerTotal,
         totalCents
       });
       

@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { splitVendorChunkPlugin } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
 
@@ -37,7 +36,9 @@ export default defineConfig(({ mode }) => ({
             if (id.includes('date-fns')) return 'dates';
             if (id.includes('dompurify')) return 'security';
             if (id.includes('@tanstack/react-virtual') || id.includes('react-window')) return 'virtual';
-            if (id.includes('qrcode') || id.includes('qr-code-styling')) return 'qr';
+            // Separate QR libraries to avoid qr-code-styling initialization issues
+            if (id.includes('qr-code-styling')) return 'qr-styled';
+            if (id.includes('qrcode')) return 'qr-simple';
             if (id.includes('hls.js')) return 'hls';
             if (id.includes('tus-js-client')) return 'upload';
             if (id.includes('@capacitor/')) return 'capacitor';
@@ -74,7 +75,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     splitVendorChunkPlugin(),
-    mode === 'development' && componentTagger(),
     // 🎯 PERF-005: Bundle visualizer (only in production builds)
     mode === 'production' && visualizer({ 
       open: true,

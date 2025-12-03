@@ -16,99 +16,37 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { GuestSession } from '@/hooks/useGuestTicketSession';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import QRCode from 'qrcode';
 
-// QR Code display component with on-demand generation
+// QR Code display component - uses SVG rendering (no async, no find_path bugs)
 function QRCodeDisplay({
-  ticketId,
   qrCode,
   title,
-  qrCodeImages,
-  setQrCodeImages,
-  isExpanded,
 }: {
-  ticketId: string;
   qrCode: string;
   title: string;
-  qrCodeImages: Record<string, string>;
-  setQrCodeImages: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  isExpanded: boolean;
 }) {
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(false);
-
-  // Generate QR code on-demand when expanded and not already generated
-  useEffect(() => {
-    if (!isExpanded || !qrCode || qrCodeImages[ticketId] || generating || error) return;
-
-    const generateQR = async () => {
-      setGenerating(true);
-      try {
-        // iOS Safari fix: Use smaller width and simpler options to avoid find_path errors
-        const qrDataUrl = await QRCode.toDataURL(qrCode, {
-          width: 300, // Reduced from 400 for iOS compatibility
-          margin: 1,
-          errorCorrectionLevel: 'M',
-          type: 'image/png',
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        });
-        setQrCodeImages(prev => ({ ...prev, [ticketId]: qrDataUrl }));
-      } catch (err: any) {
-        // iOS Safari specific error handling
-        if (err?.message?.includes('find_path') || err?.message?.includes('undefined')) {
-          console.warn('[QRCodeDisplay] QR generation failed on iOS, trying fallback:', ticketId);
-          // Fallback: Try with even simpler options
-          try {
-            const qrDataUrl = await QRCode.toDataURL(qrCode, {
-              width: 200,
-              margin: 1,
-              errorCorrectionLevel: 'L', // Lower error correction for simpler generation
-            });
-            setQrCodeImages(prev => ({ ...prev, [ticketId]: qrDataUrl }));
-          } catch (fallbackErr) {
-            console.error('[QRCodeDisplay] QR generation fallback also failed:', ticketId, fallbackErr);
-            setError(true);
-          }
-        } else {
-          console.error('[QRCodeDisplay] Failed to generate QR:', ticketId, err);
-          setError(true);
-        }
-      } finally {
-        setGenerating(false);
-      }
-    };
-
-    generateQR();
-  }, [isExpanded, qrCode, ticketId, qrCodeImages, setQrCodeImages, generating, error]);
-
   return (
     <div className="mx-auto flex h-56 w-56 sm:h-64 sm:w-64 items-center justify-center rounded-2xl bg-white p-4 shadow-xl">
-      {qrCodeImages[ticketId] ? (
-        <img 
-          src={qrCodeImages[ticketId]} 
-          alt={`${title} QR Code`} 
-          className="h-full w-full object-contain" 
+      {qrCode ? (
+        <QRCodeSVG
+          value={qrCode}
+          size={200}
+          level="M"
+          includeMargin
+          bgColor="#FFFFFF"
+          fgColor="#000000"
+          aria-label={`QR code for ticket: ${title}`}
         />
-      ) : qrCode && !error ? (
-        <div className="flex flex-col items-center gap-3 w-full">
-          <QrCode className="h-12 w-12 text-gray-400 animate-pulse" />
-          <span className="text-sm text-gray-500">{generating ? 'Generating...' : 'Loading...'}</span>
-          <div className="text-xs text-gray-400 text-center mt-2 break-all px-2">
-            Code: {qrCode.substring(0, 12)}...
-          </div>
-        </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
           <QrCode className="h-12 w-12 text-gray-400" />
-          <span className="text-sm text-gray-500">{error ? 'QR generation failed' : 'No QR code available'}</span>
+          <span className="text-sm text-gray-500">No QR code available</span>
         </div>
       )}
     </div>
@@ -158,7 +96,6 @@ export default function TicketsPage({
   const [allTickets, setAllTickets] = useState<TicketItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [qrCodeImages, setQrCodeImages] = useState<Record<string, string>>({});
 
   const tickets = useMemo(() => {
     return allTickets.filter((ticket) =>
@@ -281,39 +218,7 @@ export default function TicketsPage({
         });
 
         setAllTickets(mappedTickets);
-
-        // Generate QR codes with proper error handling
-        const generateQRCode = async (ticket: TicketItem): Promise<{ id: string; dataUrl: string } | null> => {
-          if (!ticket.qrCode) return null;
-          
-          try {
-            // Use toDataURL which works in both browser and Node environments
-            const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
-              width: 400,
-              margin: 2,
-              errorCorrectionLevel: 'M',
-              type: 'image/png',
-              color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-              }
-            });
-            return { id: ticket.id, dataUrl: qrDataUrl };
-          } catch (err) {
-            console.error('[TicketsPage] QR generation failed for:', ticket.id, err);
-            return null;
-          }
-        };
-
-        // Generate QR codes sequentially to avoid overwhelming the browser
-        const qrMap: Record<string, string> = {};
-        for (const ticket of mappedTickets.filter(t => t.qrCode)) {
-          const result = await generateQRCode(ticket);
-          if (result) {
-            qrMap[result.id] = result.dataUrl;
-          }
-        }
-        setQrCodeImages(qrMap);
+        // QR codes are generated on-demand in QRCodeDisplay when ticket is expanded
 
       } catch (err: any) {
         console.error('Error fetching member tickets:', err);
@@ -398,38 +303,7 @@ export default function TicketsPage({
         });
 
         setAllTickets(mappedTickets);
-
-        // Generate QR codes for all tickets (both active and past)
-        const generateQRCode = async (ticket: TicketItem): Promise<{ id: string; dataUrl: string } | null> => {
-          if (!ticket.qrCode) return null;
-          
-          try {
-            const qrDataUrl = await QRCode.toDataURL(ticket.qrCode, {
-              width: 400,
-              margin: 2,
-              errorCorrectionLevel: 'M',
-              type: 'image/png',
-              color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-              }
-            });
-            return { id: ticket.id, dataUrl: qrDataUrl };
-          } catch (err) {
-            console.error('[TicketsPage] QR generation failed for:', ticket.id, err);
-            return null;
-          }
-        };
-
-        // Generate QR codes sequentially to avoid overwhelming the browser
-        const qrMap: Record<string, string> = {};
-        for (const ticket of mappedTickets.filter(t => t.qrCode)) {
-          const result = await generateQRCode(ticket);
-          if (result) {
-            qrMap[result.id] = result.dataUrl;
-          }
-        }
-        setQrCodeImages(qrMap);
+        // QR codes are generated on-demand in QRCodeDisplay when ticket is expanded
       } catch (err: any) {
         console.error('Error fetching guest tickets:', err);
         setError(err?.message || 'Failed to load tickets');
@@ -649,12 +523,8 @@ export default function TicketsPage({
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
                         <p className="mb-3 text-sm font-semibold text-white">Scan at Entry</p>
                         <QRCodeDisplay 
-                          ticketId={ticket.id}
                           qrCode={ticket.qrCode}
                           title={ticket.title}
-                          qrCodeImages={qrCodeImages}
-                          setQrCodeImages={setQrCodeImages}
-                          isExpanded={expandedTicket === ticket.id}
                         />
                         <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/80">
                           <QrCode className="h-4 w-4" />

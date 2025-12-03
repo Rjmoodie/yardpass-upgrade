@@ -296,10 +296,16 @@ export async function generateStyledQRDataURL(
     
     return dataUrl;
 
-  } catch (error) {
-    console.error('❌ QR generation failed, using fallback:', error);
+  } catch (error: any) {
+    // Check for the known qr-code-styling find_path bug
+    const errorMsg = error?.message || String(error);
+    if (errorMsg.includes('find_path') || errorMsg.includes('undefined')) {
+      console.warn('⚠️ qr-code-styling find_path bug detected, using simple QR fallback');
+    } else {
+      console.error('❌ QR generation failed, using fallback:', error);
+    }
     
-    // Fallback to basic QR generation
+    // Fallback to basic QR generation (qrcode library is more reliable)
     const { generateQRCodeDataURL } = await import('./qrCode');
     return generateQRCodeDataURL(data, size);
   }

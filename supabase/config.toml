@@ -10,7 +10,7 @@ max_rows = 1000
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://lovable.app/**", "https://*.lovable.app/**"]
+additional_redirect_urls = []
 jwt_expiry = 3600
 enable_signup = true
 

@@ -28,6 +28,8 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { createGuestCheckoutSession } from "@/lib/ticketApi";
 import { useTicketDetailTracking } from "@/hooks/usePurchaseIntentTracking";
+import { calculateFees, getFeeDescription } from "@/lib/pricing";
+import { getUserFriendlyError, shouldPromptSignIn, isRetryableError } from "@/lib/errorMessages";
 
 /**
  * Single-screen purchase flow that merges:
@@ -168,7 +170,7 @@ function PaymentForm({
       }
 
       if (!actualPaymentIntentId) {
-        setSubmitError("Unable to determine payment intent ID");
+        setSubmitError("Something went wrong. Please try again.");
         setIsProcessing(false);
         return;
       }
@@ -189,8 +191,9 @@ function PaymentForm({
       });
 
       if (error) {
-        // Only *submit*-level errors go here
-        setSubmitError(error.message || "Payment failed");
+        // Show user-friendly error message for payment errors
+        const friendlyError = getUserFriendlyError(error);
+        setSubmitError(friendlyError.message);
         setIsProcessing(false);
         return;
       }
@@ -201,7 +204,8 @@ function PaymentForm({
         window.location.href = returnUrl;
       }
     } catch (err: any) {
-      setSubmitError(err.message || "An unexpected error occurred");
+      const friendlyError = getUserFriendlyError(err);
+      setSubmitError(friendlyError.message);
       setIsProcessing(false);
     }
   };
@@ -431,21 +435,14 @@ export default function EventCheckoutSheet({
 
   // Calculate fees with Stripe gross-up (organizer gets 100% of faceValue)
   const pricing = useMemo(() => {
-    const subtotal = subtotalCents;
-    const faceValue = subtotal / 100;
-
-    if (faceValue === 0) {
-      return { subtotalCents: 0, feesCents: 0, totalCents: 0 };
-    }
-
-    const platformFeeTarget = faceValue * 0.066 + 1.79;
-    const totalNetNeeded = faceValue + platformFeeTarget;
-    const totalCharge = (totalNetNeeded + 0.3) / 0.971;
-
-    const fees = Math.round((totalCharge - faceValue) * 100);
-    const total = Math.round(totalCharge * 100);
-
-    return { subtotalCents: subtotal, feesCents: fees, totalCents: total };
+    const faceValue = subtotalCents / 100;
+    const fees = calculateFees(faceValue);
+    
+    return {
+      subtotalCents: subtotalCents,
+      feesCents: Math.round(fees.processingFee * 100),
+      totalCents: Math.round(fees.total * 100),
+    };
   }, [subtotalCents]);
 
   const canProceed = totalQty > 0 && !isPast && !loading;
@@ -546,6 +543,17 @@ export default function EventCheckoutSheet({
 
       if (error) throw error;
 
+      // ✅ Handle FREE TICKETS - no payment needed
+      if (data?.free_order) {
+        toast({
+          title: "Tickets Claimed!",
+          description: `${data.tickets_issued || 'Your'} free ticket${(data.tickets_issued || 0) > 1 ? 's have' : ' has'} been added to your account.`,
+        });
+        onSuccess();
+        onClose();
+        return;
+      }
+
       let clientSecretValue = data?.client_secret || data?.clientSecret;
       if (!clientSecretValue) {
         throw new Error("No client secret returned");
@@ -566,26 +574,32 @@ export default function EventCheckoutSheet({
       );
       setExpiresAt(data.expires_at || data.expiresAt || null);
     } catch (e: any) {
-      // Checkout error
+      // Checkout error - show user-friendly message
       setStep("select");
 
-      if (e?.shouldSignIn) {
+      // Check if user should sign in
+      if (e?.shouldSignIn || shouldPromptSignIn(e)) {
         toast({
-          title: "Account exists",
-          description: "An account with this email exists. Please sign in.",
+          title: "Account Exists",
+          description: "An account with this email already exists. Please sign in.",
           variant: "destructive",
         });
         return;
       }
 
-      const msg = e?.message || "Failed to start checkout";
+      // Get user-friendly error message (never show raw errors)
+      const { title, message } = getUserFriendlyError(e);
+      
       toast({
-        title: "Checkout unavailable",
-        description: msg,
+        title,
+        description: message,
         variant: "destructive",
       });
 
-      void fetchTiers();
+      // Refresh ticket availability if error might be availability-related
+      if (isRetryableError(e)) {
+        void fetchTiers();
+      }
     } finally {
       setCreating(false);
     }
@@ -802,7 +816,7 @@ export default function EventCheckoutSheet({
                 {/* Step: select tickets */}
                 <AnimatePresence mode="wait">
                   {step === "select" && (
-                    <div className="space-y-4">
+                    <div className="space-y-4 pb-32 lg:pb-0">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold">Select Tickets</h3>
                         <Button
@@ -862,9 +876,11 @@ export default function EventCheckoutSheet({
                               >
                                 <Card
                                   className={`group rounded-2xl border p-4 transition-all duration-150 ${
-                                    isPast || isSoldOut
-                                      ? "bg-muted/30 opacity-60"
-                                      : "bg-card/95 hover:border-primary/50 hover:bg-card/100"
+                                    qty > 0
+                                      ? "border-primary/60 bg-primary/5"
+                                      : isPast || isSoldOut
+                                        ? "bg-muted/30 opacity-60"
+                                        : "bg-card/95 hover:border-primary/50 hover:bg-card/100"
                                   }`}
                                 >
                                   <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -968,6 +984,24 @@ export default function EventCheckoutSheet({
                           })}
                         </div>
                       )}
+
+                      {/* Order summary - inline on mobile */}
+                      {totalQty > 0 && (
+                        <Card className="mt-4 rounded-2xl border bg-card/95 p-4 lg:hidden">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Tickets ({totalQty})</span>
+                              <span>${(pricing.subtotalCents / 100).toFixed(2)}</span>
+                            </div>
+                            {pricing.feesCents > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Processing fee</span>
+                                <span>${(pricing.feesCents / 100).toFixed(2)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      )}
                     </div>
                   )}
                 </AnimatePresence>
@@ -986,14 +1020,22 @@ export default function EventCheckoutSheet({
 
                       {/* Mobile summary */}
                       {totalQty > 0 && (
-                        <Card className="mb-3 rounded-2xl border bg-card/90 p-3 lg:hidden">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              Total
-                            </span>
-                            <span className="text-base font-semibold">
-                              {(pricing.totalCents / 100).toFixed(2)}
-                            </span>
+                        <Card className="mb-3 rounded-2xl border bg-card/90 p-4 lg:hidden">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Tickets</span>
+                              <span>${(pricing.subtotalCents / 100).toFixed(2)}</span>
+                            </div>
+                            {pricing.feesCents > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Processing fee</span>
+                                <span>${(pricing.feesCents / 100).toFixed(2)}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                              <span className="font-semibold">Total</span>
+                              <span className="text-base font-bold">${(pricing.totalCents / 100).toFixed(2)}</span>
+                            </div>
                           </div>
                         </Card>
                       )}
@@ -1041,7 +1083,6 @@ export default function EventCheckoutSheet({
                     }
                     totalCents={pricing.totalCents}
                     onPrimaryClick={startCheckout}
-                    onCancel={onClose}
                   />
                 )}
               </div>
@@ -1196,44 +1237,33 @@ function MobileStickyBar({
   canProceed,
   totalCents,
   onPrimaryClick,
-  onCancel,
 }: {
   step: Step;
   creating: boolean;
   canProceed: boolean;
   totalCents: number;
   onPrimaryClick: () => void;
-  onCancel: () => void;
 }) {
   if (step !== "select") return null;
 
+  // Account for bottom navigation bar (~70px) + safe area
   return (
-    <div className="sticky bottom-0 z-50 mt-4 -mx-4 flex items-center justify-between gap-3 border-t border-border/70 bg-background/95 px-4 py-3 pb-[max(env(safe-area-inset-bottom,0px),0.75rem)] shadow-lg backdrop-blur-xl lg:hidden">
-      <div className="flex flex-col">
-        <span className="text-xs text-muted-foreground">Total</span>
-        <span className="text-base font-semibold">
-          {(totalCents / 100).toFixed(2)}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          className="px-3 text-xs"
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          className="rounded-full px-4"
-          onClick={onPrimaryClick}
-          disabled={!canProceed || creating}
-        >
-          {creating ? "Starting…" : "Continue"}
-        </Button>
-      </div>
+    <div className="fixed bottom-[70px] inset-x-0 z-50 bg-background border-t border-border/40 p-4 lg:hidden lg:bottom-0">
+      <Button
+        size="lg"
+        className="w-full h-12 text-base font-semibold rounded-xl"
+        onClick={onPrimaryClick}
+        disabled={!canProceed || creating}
+      >
+        {creating ? (
+          <>
+            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+            Processing...
+          </>
+        ) : (
+          <>Continue · ${(totalCents / 100).toFixed(2)}</>
+        )}
+      </Button>
     </div>
   );
 }

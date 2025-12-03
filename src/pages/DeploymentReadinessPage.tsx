@@ -61,13 +61,13 @@ export function DeploymentReadinessPage({ onBack }: DeploymentReadinessPageProps
             </div>
             
             <div className="p-4 border rounded-lg">
-              <h3 className="font-medium mb-2">Lovable Mobile Guide</h3>
+              <h3 className="font-medium mb-2">App Store Guidelines</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Step-by-step guide for mobile deployment
+                Apple's guidelines for app submission
               </p>
               <Button size="sm" variant="outline" asChild>
-                <a href="https://lovable.dev/blogs/TODO" target="_blank" rel="noopener noreferrer">
-                  Read Guide <ExternalLink className="w-3 h-3 ml-1" />
+                <a href="https://developer.apple.com/app-store/review/guidelines/" target="_blank" rel="noopener noreferrer">
+                  View Guidelines <ExternalLink className="w-3 h-3 ml-1" />
                 </a>
               </Button>
             </div>

@@ -2,6 +2,10 @@
  * Tests for pricing utility functions
  * 
  * Run with: deno test --allow-read supabase/functions/_shared/pricing.test.ts
+ * 
+ * Fee Structure (Eventbrite-equivalent):
+ *   Platform Fee = 3.7% + $1.79 per ticket
+ *   Stripe Fee = 2.9% + $0.30 per transaction
  */
 
 import { assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
@@ -9,7 +13,15 @@ import {
   calculateProcessingFeeCents,
   calculatePlatformFeeCents,
   buildPricingBreakdown,
+  calculateGrossedUpCharge,
+  PLATFORM_PERCENT,
+  PLATFORM_FLAT,
 } from "./pricing.ts";
+
+Deno.test("Constants are set correctly", () => {
+  assertEquals(PLATFORM_PERCENT, 0.037, "Platform percent should be 3.7%");
+  assertEquals(PLATFORM_FLAT, 1.79, "Platform flat fee should be $1.79");
+});
 
 Deno.test("calculateProcessingFeeCents - free tickets have no fees", () => {
   assertEquals(calculateProcessingFeeCents(0), 0);
@@ -18,28 +30,35 @@ Deno.test("calculateProcessingFeeCents - free tickets have no fees", () => {
 
 Deno.test("calculateProcessingFeeCents - $10 ticket", () => {
   const fee = calculateProcessingFeeCents(1000);
-  // Expected: ~$3.50 ($10 * 6.6% + $1.79, grossed up for Stripe)
-  // Actual calculation: ((10 + 10*0.066 + 1.79) + 0.30) / 0.971 - 10 ≈ 3.47
-  assertEquals(fee >= 340 && fee <= 360, true, `Expected ~350, got ${fee}`);
+  // Expected: ($10 * 3.7% + $1.79, grossed up for Stripe)
+  // Platform fee: 10 * 0.037 + 1.79 = $2.16
+  // Grossed up: (10 + 2.16 + 0.30) / 0.971 = $12.83
+  // Processing fee: 12.83 - 10 = $2.83 = ~283 cents
+  assertEquals(fee >= 275 && fee <= 295, true, `Expected ~283, got ${fee}`);
 });
 
 Deno.test("calculateProcessingFeeCents - $100 ticket", () => {
   const fee = calculateProcessingFeeCents(10000);
-  // Expected: ~$24.50 ($100 * 6.6% + $1.79, grossed up)
-  // Actual: ((100 + 100*0.066 + 1.79) + 0.30) / 0.971 - 100 ≈ 24.46
-  assertEquals(fee >= 2400 && fee <= 2500, true, `Expected ~2450, got ${fee}`);
+  // Expected: ($100 * 3.7% + $1.79, grossed up)
+  // Platform fee: 100 * 0.037 + 1.79 = $5.49
+  // Grossed up: (100 + 5.49 + 0.30) / 0.971 = $108.95
+  // Processing fee: 108.95 - 100 = $8.95 = ~895 cents
+  assertEquals(fee >= 885 && fee <= 905, true, `Expected ~895, got ${fee}`);
 });
 
 Deno.test("calculateProcessingFeeCents - $1000 ticket", () => {
   const fee = calculateProcessingFeeCents(100000);
-  // Expected: ~$188 ($1000 * 6.6% + $1.79, grossed up)
-  assertEquals(fee >= 18700 && fee <= 18900, true, `Expected ~18800, got ${fee}`);
+  // Expected: ($1000 * 3.7% + $1.79, grossed up)
+  // Platform fee: 1000 * 0.037 + 1.79 = $38.79
+  // Processing fee: ~$70.12 = ~7012 cents
+  assertEquals(fee >= 6950 && fee <= 7100, true, `Expected ~7012, got ${fee}`);
 });
 
 Deno.test("calculateProcessingFeeCents - $0.01 ticket (edge case)", () => {
   const fee = calculateProcessingFeeCents(1);
-  // Even tiny tickets get the base $1.79 fee
-  assertEquals(fee >= 180 && fee <= 200, true, `Expected ~190, got ${fee}`);
+  // Even tiny tickets get the base $1.79 fee + gross-up
+  // ~$2.15 processing fee = ~215 cents
+  assertEquals(fee >= 200 && fee <= 230, true, `Expected ~215, got ${fee}`);
 });
 
 Deno.test("calculatePlatformFeeCents - returns just platform portion", () => {
@@ -50,8 +69,24 @@ Deno.test("calculatePlatformFeeCents - returns just platform portion", () => {
   // (because processing fee includes gross-up for Stripe)
   assertEquals(platformFee < processingFee, true);
   
-  // For $10 ticket: 10 * 0.066 + 1.79 = 2.45 = 245 cents
-  assertEquals(platformFee >= 240 && platformFee <= 250, true);
+  // For $10 ticket: 10 * 0.037 + 1.79 = 2.16 = ~216 cents
+  assertEquals(platformFee >= 210 && platformFee <= 220, true, `Expected ~216, got ${platformFee}`);
+});
+
+Deno.test("calculateGrossedUpCharge - $100 ticket breakdown", () => {
+  const result = calculateGrossedUpCharge(100);
+  
+  // Buyer should pay ~$108.95
+  assertEquals(result.buyerTotal >= 108.90 && result.buyerTotal <= 109.00, true, 
+    `Expected buyerTotal ~108.95, got ${result.buyerTotal}`);
+  
+  // Platform fee should be ~$5.49
+  assertEquals(result.platformFee >= 5.45 && result.platformFee <= 5.55, true,
+    `Expected platformFee ~5.49, got ${result.platformFee}`);
+  
+  // Organizer should get ~$100
+  assertEquals(result.organizerPayout >= 99.90 && result.organizerPayout <= 100.10, true,
+    `Expected organizerPayout ~100, got ${result.organizerPayout}`);
 });
 
 Deno.test("buildPricingBreakdown - complete structure", () => {
@@ -101,3 +136,15 @@ Deno.test("buildPricingBreakdown - accepts custom currency", () => {
   assertEquals(pricing.currency, "EUR");
 });
 
+Deno.test("Organizer payout verification - ensures organizer gets face value", () => {
+  // Test across various ticket prices
+  const testPrices = [20, 50, 100, 200, 500];
+  
+  for (const price of testPrices) {
+    const result = calculateGrossedUpCharge(price);
+    // Organizer should receive within 20 cents of face value (accounting for rounding)
+    const diff = Math.abs(result.organizerPayout - price);
+    assertEquals(diff <= 0.20, true, 
+      `For $${price} ticket, organizer got $${result.organizerPayout} (diff: $${diff})`);
+  }
+});

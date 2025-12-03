@@ -1,5 +1,19 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
+// Import canonical fee calculation from pricing module
+import {
+  calculateProcessingFeeCents,
+  calculatePlatformFeeCents,
+  buildPricingBreakdown as buildPricingBreakdownFromPricing,
+  PLATFORM_PERCENT,
+  PLATFORM_FLAT,
+  STRIPE_PERCENT,
+  STRIPE_FLAT,
+} from "./pricing.ts";
+
+// Re-export for backward compatibility
+export { calculateProcessingFeeCents, calculatePlatformFeeCents };
+
 export interface CheckoutSessionUpsertInput {
   id: string;
   orderId: string;
@@ -142,81 +156,5 @@ export const updateCheckoutSession = async (
   }
 };
 
-export const calculateProcessingFeeCents = (faceValueCents: number): number => {
-  // ✅ No processing fee for free tickets
-  if (faceValueCents === 0) {
-    return 0;
-  }
-  
-  const faceValue = faceValueCents / 100;
-  
-  // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
-  const platformFeeTarget = faceValue * 0.066 + 1.79;
-  
-  // Net needed after Stripe fees
-  const totalNetNeeded = faceValue + platformFeeTarget;
-  
-  // Gross up for Stripe: 2.9% + $0.30
-  const totalCharge = (totalNetNeeded + 0.30) / 0.971;
-  
-  // Processing fee = total customer pays - face value
-  const processingFee = totalCharge - faceValue;
-  
-  return Math.round(processingFee * 100);
-};
-
-export const calculatePlatformFeeCents = (faceValueCents: number): number => {
-  // Platform fee only (for Stripe Connect application_fee_amount)
-  if (faceValueCents === 0) {
-    return 0;
-  }
-  
-  const faceValue = faceValueCents / 100;
-  const platformFeeTarget = faceValue * 0.066 + 1.79;
-  return Math.round(platformFeeTarget * 100);
-};
-
-export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
-  const feesCents = calculateProcessingFeeCents(faceValueCents);
-  const totalCents = faceValueCents + feesCents;
-  const platformFeeCents = calculatePlatformFeeCents(faceValueCents);
-  
-  return {
-    subtotalCents: faceValueCents,
-    feesCents,
-    totalCents,
-    platformFeeCents, // For Stripe Connect application_fee_amount
-    currency,
-  };
-};
-
-  // Processing fee = total customer pays - face value
-  const processingFee = totalCharge - faceValue;
-  
-  return Math.round(processingFee * 100);
-};
-
-export const calculatePlatformFeeCents = (faceValueCents: number): number => {
-  // Platform fee only (for Stripe Connect application_fee_amount)
-  if (faceValueCents === 0) {
-    return 0;
-  }
-  
-  const faceValue = faceValueCents / 100;
-  const platformFeeTarget = faceValue * 0.066 + 1.79;
-  return Math.round(platformFeeTarget * 100);
-};
-
-export const buildPricingBreakdown = (faceValueCents: number, currency = "USD") => {
-  const feesCents = calculateProcessingFeeCents(faceValueCents);
-  const totalCents = faceValueCents + feesCents;
-  const platformFeeCents = calculatePlatformFeeCents(faceValueCents);
-  
-  return {
-    subtotalCents: faceValueCents,
-    feesCents,
-    totalCents,
-    platformFeeCents, // For Stripe Connect application_fee_amount
-    currency,
-  };
-};
+// Re-export buildPricingBreakdown for backward compatibility
+export const buildPricingBreakdown = buildPricingBreakdownFromPricing;

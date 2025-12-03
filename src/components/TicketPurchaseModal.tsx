@@ -12,6 +12,7 @@ import { useCheckoutTracking } from '@/hooks/useCheckoutTracking';
 import { toast } from '@/hooks/use-toast';
 import { createGuestCheckoutSession } from '@/lib/ticketApi';
 import { StripeEmbeddedCheckout } from './StripeEmbeddedCheckout';
+import { calculateFees, getFeeDescription } from '@/lib/pricing';
 const SkeletonList = lazy(() => import('@/components/common/SkeletonList'));
 
 interface TicketTier {
@@ -269,38 +270,7 @@ export function TicketPurchaseModal({
     }
   };
 
-  // Fee calculation function with Stripe gross-up
-  const calculateFees = (faceValue: number) => {
-    // ✅ No processing fee for free tickets
-    if (faceValue === 0) {
-      return {
-        total: 0,
-        processingFee: 0,
-        stripeFee: 0,
-        platformComponent: 0
-      };
-    }
-    
-    // Platform fee target (Eventbrite-equivalent): 6.6% + $1.79
-    const platformFeeTarget = faceValue * 0.066 + 1.79;
-    
-    // Net needed after Stripe fees (organizer gets faceValue, platform gets platformFeeTarget)
-    const totalNetNeeded = faceValue + platformFeeTarget;
-    
-    // Gross up for Stripe fees: 2.9% + $0.30
-    // Solving: net = total × 0.971 - 0.30  →  total = (net + 0.30) / 0.971
-    const totalCharge = (totalNetNeeded + 0.30) / 0.971;
-    
-    // Processing fee shown to customer (includes platform + Stripe)
-    const processingFee = totalCharge - faceValue;
-    
-    return {
-      total: Math.round(totalCharge * 100) / 100, // Round to cents
-      processingFee: Math.round(processingFee * 100) / 100,
-      stripeFee: 0, // Not needed for display
-      platformComponent: 0 // Not needed for display
-    };
-  };
+  // Fee calculation now imported from @/lib/pricing
 
   const updateSelection = (tierId: string, change: number) => {
     const tier = ticketTiers.find(t => t.id === tierId);
@@ -337,34 +307,30 @@ export function TicketPurchaseModal({
 
   // Calculate totals with fees
   const summary = useMemo(() => {
-    let subtotal = 0;
+    let faceValue = 0;
     let totalQuantity = 0;
-    let totalProcessingFee = 0;
-    let grandTotal = 0;
     
     Object.entries(selections).forEach(([tierId, quantity]) => {
       const tier = ticketTiers.find(t => t.id === tierId);
       if (tier && quantity > 0) {
-        const faceValue = tier.price_cents / 100;
-        const fees = calculateFees(faceValue);
-        
-        subtotal += faceValue * quantity;
-        totalProcessingFee += fees.processingFee * quantity;
-        grandTotal += fees.total * quantity;
+        faceValue += (tier.price_cents / 100) * quantity;
         totalQuantity += quantity;
       }
     });
     
+    // Calculate fees on total face value
+    const fees = calculateFees(faceValue);
+    
     return { 
-      subtotal, 
+      faceValue,
       totalQuantity, 
-      processingFee: totalProcessingFee,
-      grandTotal
+      processingFee: fees.processingFee,
+      total: fees.total
     };
   }, [selections, ticketTiers]);
 
   const totalTickets = summary.totalQuantity;
-  const totalAmount = Math.round(summary.grandTotal * 100); // Convert to cents
+  const totalAmount = Math.round(summary.total * 100); // Convert to cents
 
   const handlePurchase = useCallback(async () => {
     console.log('🎫 Purchase button clicked!');
@@ -936,7 +902,7 @@ export function TicketPurchaseModal({
               <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
                 <div className="flex justify-between">
                   <span>Tickets ({summary.totalQuantity})</span>
-                  <span>${summary.subtotal.toFixed(2)}</span>
+                  <span>${summary.faceValue.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-1">
@@ -944,7 +910,7 @@ export function TicketPurchaseModal({
                     <div className="relative group">
                       <span className="text-xs w-3 h-3 rounded-full bg-muted-foreground text-background flex items-center justify-center cursor-help">ⓘ</span>
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-popover text-popover-foreground rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                        Includes platform and payment processing costs
+                        {getFeeDescription()} + payment processing
                       </div>
                     </div>
                   </div>
@@ -952,7 +918,7 @@ export function TicketPurchaseModal({
                 </div>
                 <div className="flex justify-between font-semibold pt-2 border-t">
                   <span>Total</span>
-                  <span>${summary.grandTotal.toFixed(2)}</span>
+                  <span>${summary.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>

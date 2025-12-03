@@ -549,6 +549,44 @@ serve(async (req) => {
       }
     }
 
+    // ✅ Handle FREE TICKETS - no Stripe payment needed
+    if (pricing.totalCents === 0) {
+      console.log('[guest-checkout] Free tickets - skipping Stripe, issuing directly');
+      
+      // Issue tickets directly
+      const { data: ticketResult, error: ticketError } = await supabaseService.rpc(
+        'issue_tickets_from_holds',
+        {
+          p_hold_ids: reservationResult.hold_ids ?? [],
+          p_order_id: orderId,
+        }
+      );
+
+      if (ticketError) {
+        console.error('[guest-checkout] Failed to issue free tickets:', ticketError);
+        throw new Error(`Failed to issue tickets: ${ticketError.message}`);
+      }
+
+      // Update order status to completed
+      await supabaseService
+        .from('orders')
+        .update({ status: 'completed' })
+        .eq('id', orderId);
+
+      // Return success for free tickets (no client_secret needed)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          free_order: true,
+          order_id: orderId,
+          checkout_session_id: checkoutSessionId,
+          tickets_issued: ticketResult?.tickets_issued ?? items.reduce((sum, i) => sum + i.quantity, 0),
+          message: 'Free tickets issued successfully',
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log("[guest-checkout] Creating PaymentIntent for Custom Checkout...", {
       customerId,
       email: normalizedEmail,
@@ -738,6 +776,26 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("[guest-checkout] unexpected error", error);
-    return response({ error: (error as Error)?.message ?? "Unexpected error" }, 500);
+    const msg = (error as Error)?.message ?? "";
+    
+    // User-friendly error mapping
+    let userMsg = "We couldn't process your request. Please try again.";
+    let code = "CHECKOUT_FAILED";
+    
+    if (/sold out|unavailable|insufficient/i.test(msg)) {
+      userMsg = "Sorry, these tickets are no longer available.";
+      code = "TICKETS_UNAVAILABLE";
+    } else if (/expired/i.test(msg)) {
+      userMsg = "Your reservation has expired. Please start again.";
+      code = "RESERVATION_EXPIRED";
+    } else if (/email.*exists|account.*exists/i.test(msg)) {
+      userMsg = "An account with this email exists. Please sign in.";
+      code = "ACCOUNT_EXISTS";
+    } else if (/invalid.*email/i.test(msg)) {
+      userMsg = "Please enter a valid email address.";
+      code = "INVALID_EMAIL";
+    }
+    
+    return response({ error: userMsg, error_code: code }, 500);
   }
 });
