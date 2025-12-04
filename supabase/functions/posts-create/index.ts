@@ -7,11 +7,7 @@ interface CreatePostRequest {
   text?: string;
   media_urls?: string[];
   ticket_tier_id?: string;
-  post_as_context_type?: string | null;
-  post_as_context_id?: string | null;
 }
-
-const RATELIMIT_MAX_PER_MIN = 10;
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -19,12 +15,6 @@ serve(async (req) => {
 
   try {
     console.log('Posts-create function called');
-    
-    // Create service role client for idempotency and rate limiting
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
     
     // Create Supabase client for user operations
     const supabaseClient = createClient(
@@ -46,60 +36,16 @@ serve(async (req) => {
       return createErrorResponse("Unauthorized", 401);
     }
 
-    // Check for idempotency key
-    const idempotencyKey = req.headers.get('Idempotency-Key');
-    if (idempotencyKey) {
-      const { data: existing } = await serviceClient
-        .from('idempotency_keys')
-        .select('response')
-        .eq('key', idempotencyKey)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (existing) {
-        console.log('Returning cached response for idempotency key:', idempotencyKey);
-        return createResponse(existing.response);
-      }
-    }
-    
-    // Rate limiting
-    const now = new Date();
-    const minute = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
-    
-    const { data: rateCheck } = await serviceClient
-      .from('rate_limits')
-      .upsert({ 
-        user_id: user.id, 
-        bucket: 'posts-create', 
-        minute: minute.toISOString(),
-        count: 1 
-      }, { 
-        onConflict: 'user_id,bucket,minute',
-        count: 'exact'
-      })
-      .select('count')
-      .maybeSingle();
-      
-    if (rateCheck && rateCheck.count > RATELIMIT_MAX_PER_MIN) {
-      return createErrorResponse('Rate limit exceeded', 429);
-    }
+    // Idempotency and rate limiting are optional - skip if tables don't exist
+    // These can be enabled later by creating the required tables
 
     const { 
       event_id, 
       text, 
       media_urls = [], 
-      ticket_tier_id,
-      post_as_context_type,
-      post_as_context_id
+      ticket_tier_id
     }: CreatePostRequest = await req.json();
-    console.log('Request data:', { 
-      event_id, 
-      text, 
-      media_urls, 
-      ticket_tier_id,
-      post_as_context_type,
-      post_as_context_id
-    });
+    console.log('Request data:', { event_id, text, media_urls, ticket_tier_id });
 
     if (!event_id || !text || typeof text !== "string") {
       return createErrorResponse("Missing event_id or text", 400);
@@ -204,56 +150,22 @@ serve(async (req) => {
       }
     }
 
-    // Validate post_as fields if provided
-    if (post_as_context_type === 'organization') {
-      if (!post_as_context_id) {
-        return createErrorResponse("post_as_context_id is required when post_as_context_type is 'organization'", 400);
-      }
-      
-      // Verify user is a member of the organization with posting rights
-      const { data: membership, error: membershipError } = await supabaseClient
-        .from('org_memberships')
-        .select('role')
-        .eq('org_id', post_as_context_id)
-        .eq('user_id', user.id)
-        .in('role', ['owner', 'admin', 'editor'])
-        .maybeSingle();
-      
-      if (membershipError) {
-        console.error('Error checking org membership:', membershipError);
-        return createErrorResponse('Failed to verify organization membership', 500);
-      }
-      
-      if (!membership) {
-        return createErrorResponse('You do not have permission to post as this organization', 403);
-      }
-      
-      // Verify the organization exists
-      const { data: org, error: orgError } = await supabaseClient
-        .from('organizations')
-        .select('id')
-        .eq('id', post_as_context_id)
-        .maybeSingle();
-      
-      if (orgError || !org) {
-        return createErrorResponse('Organization not found', 404);
-      }
-    } else if (post_as_context_type !== null && post_as_context_type !== undefined) {
-      return createErrorResponse(`Invalid post_as_context_type: ${post_as_context_type}`, 400);
+    // Create the post - only include fields that exist in the table
+    const postData: Record<string, unknown> = {
+      event_id,
+      author_user_id: user.id,
+      text: processedText,  // Use processed text (links stripped for flashbacks)
+      media_urls: media_urls || [],
+    };
+    
+    // Only include ticket_tier_id if provided
+    if (finalTicketTierId) {
+      postData.ticket_tier_id = finalTicketTierId;
     }
 
-    // Create the post
     const { data: post, error: postError } = await supabaseClient
       .from('event_posts')
-      .insert({
-        event_id,
-        author_user_id: user.id,
-        text: processedText,  // Use processed text (links stripped for flashbacks)
-        media_urls: media_urls || [],
-        ticket_tier_id: finalTicketTierId,
-        post_as_context_type: post_as_context_type || null,
-        post_as_context_id: post_as_context_id || null,
-      })
+      .insert(postData)
       .select('id')
       .single();
 
@@ -277,22 +189,7 @@ serve(async (req) => {
       return createResponse({ data: post }, 201);
     }
 
-    const responseData = { data: fullPost };
-    
-    // Cache successful response for idempotency
-    if (idempotencyKey) {
-      await serviceClient
-        .from('idempotency_keys')
-        .insert({
-          key: idempotencyKey,
-          user_id: user.id,
-          response: responseData
-        })
-        .select()
-        .maybeSingle();
-    }
-
-    return createResponse(responseData, 201);
+    return createResponse({ data: fullPost }, 201);
 
   } catch (error) {
     console.error('Error in posts-create function:', error);

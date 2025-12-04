@@ -188,6 +188,7 @@ export const MessageEmail = ({
                       alt={org_name || 'Liventix'}
                       style={{...logo, width: '100px', height: 'auto', maxWidth: '100%', borderRadius: '12px'}}
                     />
+                    <Text style={{ margin: '12px 0 0 0', color: '#94a3b8', fontSize: '14px', letterSpacing: '0.5px' }}>Live Event Tickets</Text>
                   </td>
                 </tr>
                 {subject && (

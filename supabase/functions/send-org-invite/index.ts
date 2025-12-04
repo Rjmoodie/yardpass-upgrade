@@ -259,6 +259,7 @@ const handler = withCORS(async (req) => {
           <div class="container">
             <div class="logo-section">
               <img src="https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png" alt="Liventix" width="100" style="width:100px;height:auto;max-width:100%;border-radius:12px;" />
+              <p style="margin:12px 0 0 0;color:#94a3b8;font-size:14px;letter-spacing:0.5px;">Live Event Tickets</p>
             </div>
             <div class="header">
               <h1>You're invited to join ${organization.name}</h1>

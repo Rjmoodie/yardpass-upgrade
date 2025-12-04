@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, X, Trash2, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply, MoreVertical, Flag, MessageCircle } from 'lucide-react';
+import { Heart, X, Trash2, ExternalLink, Link as LinkIcon, ChevronDown, Pin, Reply, MoreVertical, Flag, MessageCircle, Link2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import type { Comment, Post, CommentRow, PostRow } from '@/domain/posts';
 
@@ -1467,14 +1468,23 @@ export default function CommentModal({
                 <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="min-w-[120px]">
+              <DropdownMenuItem 
+                onClick={() => {
+                  toast({ title: 'Reported', description: 'Thank you for your feedback.' });
+                }}
+                className="text-foreground hover:bg-muted/20 cursor-pointer"
+              >
+                <Flag className="h-4 w-4 mr-2" />
+                Report
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleDeletePost(activePost.id)}
                 disabled={deletingPostId === activePost.id}
-                className="text-red-400 hover:bg-white/10 cursor-pointer disabled:opacity-50"
+                className="text-red-400 hover:bg-red-500/10 cursor-pointer disabled:opacity-50"
               >
-                <Flag className="h-4 w-4 mr-2" />
-                {deletingPostId === activePost.id ? 'Deleting...' : 'Delete Post'}
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deletingPostId === activePost.id ? 'Deleting...' : 'Delete'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -107,7 +107,8 @@ function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgIn
       React.createElement('div', { style: { maxWidth: '600px', margin: '0 auto', backgroundColor: '#ffffff' } },
         // Header
         React.createElement('div', { style: { backgroundColor: '#1a1a1a', padding: '24px', textAlign: 'center' } },
-          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'Liventix', width: '100', style: { width: '100px', height: 'auto', maxWidth: '100%', borderRadius: '12px' } })
+          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'Liventix', width: '100', style: { width: '100px', height: 'auto', maxWidth: '100%', borderRadius: '12px' } }),
+          React.createElement('p', { style: { margin: '12px 0 0 0', color: '#94a3b8', fontSize: '14px', letterSpacing: '0.5px' } }, 'Live Event Tickets')
         ),
         // Content
         React.createElement('div', { style: { padding: '32px 24px' } }, children),

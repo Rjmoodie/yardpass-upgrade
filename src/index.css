@@ -107,48 +107,32 @@ svg,
   }
 }
 
-/* Responsive video controls styling */
-video {
-  /* Ensure controls are visible and properly sized */
-  width: 100%;
-  height: auto;
+/* Hide video controls for clean feed experience */
+mux-player {
+  --controls: none;
+  --media-object-fit: cover;
+  --media-object-position: center;
 }
 
-video::-webkit-media-controls-panel {
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+mux-player::part(bottom) {
+  display: none !important;
 }
 
-video::-webkit-media-controls-play-button,
-video::-webkit-media-controls-timeline,
-video::-webkit-media-controls-current-time-display,
-video::-webkit-media-controls-time-remaining-display,
-video::-webkit-media-controls-mute-button,
-video::-webkit-media-controls-volume-slider,
-video::-webkit-media-controls-fullscreen-button {
-  /* Make controls more visible on mobile */
-  min-height: 44px;
-  min-width: 44px;
+mux-player::part(top) {
+  display: none !important;
 }
 
-/* Mobile-specific video control improvements */
-@media (max-width: 640px) {
-  video::-webkit-media-controls-panel {
-    padding: 8px;
-  }
-  
-  video::-webkit-media-controls-play-button,
-  video::-webkit-media-controls-mute-button,
-  video::-webkit-media-controls-fullscreen-button {
-    min-height: 48px;
-    min-width: 48px;
-  }
+mux-player::part(center) {
+  display: none !important;
 }
 
-/* Ensure video controls are accessible on touch devices */
+/* Hide native video controls */
+video::-webkit-media-controls {
+  display: none !important;
+}
+
 video::-webkit-media-controls-enclosure {
-  max-width: 100%;
-  overflow: visible;
+  display: none !important;
 }
 
 /* --- Visibility & Feel Enhancements --- */

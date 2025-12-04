@@ -321,6 +321,9 @@ export function VideoMedia({ url, post, visible, trackVideoProgress, globalSound
           preferCmcd={true as any}
           envKey={muxEnvKey}
           beaconCollectionDomain={muxBeaconDomain}
+          disablePictureInPicture
+          disableTracking={false as any}
+          noHotKeys
           metadata={{
             video_id: playbackId,
             video_title: title,

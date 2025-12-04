@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket, Info, ExternalLink, Eye } from "lucide-react";
+import { Heart, MoreVertical, Flag, UserX, Bookmark, ChevronUp, MapPin, Calendar, Ticket, Info, ExternalLink, Eye, Link2, Share2, Trash2 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { VideoMedia } from "@/components/feed/VideoMedia";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 interface UserPostCardNewDesignProps {
@@ -165,6 +166,7 @@ const UserPostCardNewDesignComponent = ({
             post={item as any}
             visible={isVideoPlaying}
             globalSoundEnabled={soundEnabled}
+            hideControls={true}
           />
         ) : mediaUrl ? (
           <ImageWithFallback
@@ -200,11 +202,11 @@ const UserPostCardNewDesignComponent = ({
             : 'calc(0.4rem + env(safe-area-inset-bottom, 0px))',
         }}
       >
-        <div className="relative flex h-full flex-col rounded-3xl border border-border bg-gradient-to-br from-background/70 via-background/60 to-background/70 shadow-2xl backdrop-blur-3xl">
+        <div className="relative flex h-full flex-col rounded-3xl bg-transparent">
           {/* Clickable header to expand/collapse */}
           <div
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex-shrink-0 w-full px-2 pt-1 pb-4 sm:px-3 sm:pt-1.5 sm:pb-5 md:px-4 md:pt-2 md:pb-6 text-left transition-all hover:bg-muted/10 cursor-pointer"
+            className="flex-shrink-0 w-full px-3 pt-2 pb-6 sm:px-4 sm:pt-2.5 sm:pb-8 text-left transition-all hover:bg-white/5 cursor-pointer"
           >
             {/* Author Info */}
             <div className="mb-1.5 sm:mb-2 flex items-center gap-2">
@@ -251,13 +253,7 @@ const UserPostCardNewDesignComponent = ({
                   }}
                   className="cursor-pointer group"
                 >
-                  <div className="text-sm sm:text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                    {/* For promoted content, show organization name instead of user name */}
-                    {item.isPromoted && item.event_organizer
-                      ? item.event_organizer
-                      : item.author_name || 'User'}
-                  </div>
-                  <div className="mt-0.5 sm:mt-1 flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {/* Badge Priority: Promotion > Organizer > Ticket Tier */}
                     {item.isPromoted ? (
                       <div className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/15 to-amber-600/15 border border-amber-400/25 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-600 dark:text-amber-300/90">
@@ -408,21 +404,33 @@ const UserPostCardNewDesignComponent = ({
                     </>
                   )}
                   {isOwnPost && (
-                    <DropdownMenuItem
-                      onClick={handleDeletePost}
-                      disabled={deleting}
-                      className="text-red-400 hover:bg-white/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Flag className="h-4 w-4 mr-2" />
-                      {deleting ? 'Deleting...' : 'Delete Post'}
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          onReport?.();
+                          toast({ title: 'Reported', description: 'Thank you for your feedback.' });
+                        }}
+                        className="text-foreground hover:bg-muted/20 cursor-pointer"
+                      >
+                        <Flag className="h-4 w-4 mr-2" />
+                        Report
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleDeletePost}
+                        disabled={deleting}
+                        className="text-red-400 hover:bg-red-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {deleting ? 'Deleting...' : 'Delete'}
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             {/* Caption */}
-            <div className="mt-2 sm:mt-3">
+            <div className="mt-1.5 sm:mt-2">
               <p className={`text-xs sm:text-sm leading-relaxed text-foreground/90 ${isExpanded ? '' : 'line-clamp-2'}`}>
                 <span className="font-bold text-foreground">{item.author_name}</span>{' '}
                 <span className="font-normal">{item.content || ''}</span>
@@ -430,7 +438,7 @@ const UserPostCardNewDesignComponent = ({
             </div>
             
             {/* Footer: Views + More button */}
-            <div className="mt-2 flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/60">
+            <div className="mt-0.5 flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/60">
               <div className="flex items-center gap-2 sm:gap-3">
                 {!viewCountLoading && viewCount > 0 && (
                   <span className="flex items-center gap-1">

@@ -331,6 +331,7 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { chil
                         decoding: "sync",
                       }),
                     ),
+                    React.createElement("p", { style: { margin: "12px 0 0 0", color: "#94a3b8", fontSize: "14px", letterSpacing: "0.5px" } }, "Live Event Tickets"),
                   ),
                 ),
               ),

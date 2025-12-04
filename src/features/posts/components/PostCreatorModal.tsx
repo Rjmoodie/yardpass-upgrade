@@ -998,11 +998,11 @@ export function PostCreatorModal({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
-          className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[92dvh] [&>button]:!hidden" 
+          className="w-full max-w-3xl p-0 overflow-hidden border-none bg-transparent shadow-none max-h-[calc(100dvh-160px)] sm:max-h-[92dvh] mb-[120px] sm:mb-0 [&>button]:!hidden" 
           aria-busy={isSubmitting}
         >
           <div 
-            className="flex h-[92dvh] flex-col rounded-2xl border border-border/40 bg-background shadow-[0_20px_48px_rgba(0,0,0,0.15)] backdrop-blur-xl"
+            className="flex max-h-[calc(100dvh-160px)] sm:max-h-[92dvh] flex-col rounded-2xl border border-border/40 bg-background shadow-[0_20px_48px_rgba(0,0,0,0.15)] backdrop-blur-xl"
           >
             {/* Header */}
             <div className="border-b border-border/30">
@@ -1025,7 +1025,7 @@ export function PostCreatorModal({
             </div>
 
             <div 
-              className="flex-1 overflow-y-auto px-4 sm:px-6 pb-nav" 
+              className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4" 
               style={keyboardPadding}
               onPaste={onPaste}
             >
@@ -1330,31 +1330,6 @@ export function PostCreatorModal({
                       </div>
                     </div>
 
-                    {/* Action bar */}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end pt-3">
-                        <Button
-                          variant="ghost"
-                          onClick={onClose}
-                          className="rounded-full h-9 sm:h-10 sm:w-auto text-xs sm:text-sm text-muted-foreground hover:text-foreground"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleSubmit}
-                          disabled={!canPost}
-                          className="rounded-full h-9 sm:h-10 bg-primary text-primary-foreground text-xs sm:text-sm font-medium shadow-sm hover:shadow-md px-4 sm:px-6 sm:min-w-[140px] transition-all"
-                          aria-busy={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <div className="flex items-center gap-2">
-                              <div className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                              <span className="text-xs sm:text-sm">Posting…</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs sm:text-sm">Post update</span>
-                          )}
-                        </Button>
-                      </div>
                   </div>
 
                   {/* RIGHT: media preview gallery */}
@@ -1497,6 +1472,42 @@ export function PostCreatorModal({
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* Sticky Action Footer - Always visible above bottom nav */}
+            <div className="shrink-0 border-t border-border/30 bg-background px-4 sm:px-6 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] text-muted-foreground">
+                  {queue.length > 0 
+                    ? `${queue.length} ${queue.length === 1 ? 'file' : 'files'} attached`
+                    : 'Add media to your post'
+                  }
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={onClose}
+                    className="rounded-full h-10 px-4 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!canPost}
+                    className="rounded-full h-10 bg-primary text-primary-foreground text-sm font-semibold shadow-md hover:shadow-lg px-6 min-w-[120px] transition-all"
+                    aria-busy={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        <span>Posting…</span>
+                      </div>
+                    ) : (
+                      <span>Post update</span>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>

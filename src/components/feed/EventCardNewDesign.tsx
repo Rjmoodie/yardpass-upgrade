@@ -85,10 +85,10 @@ const EventCardNewDesignComponent = ({
         }}
       >
         <div
-          className={`relative flex h-full flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-gradient-to-br from-background/70 via-background/60 to-background/70 shadow-xl backdrop-blur-3xl ${
+          className={`relative flex h-full flex-col overflow-hidden rounded-2xl sm:rounded-3xl bg-transparent ${
             isExpanded
               ? "max-h-[60vh]"
-              : "max-h-[26vh] sm:max-h-[24vh] md:max-h-[22vh]" // ✅ MUCH SHORTER
+              : "max-h-[26vh] sm:max-h-[24vh] md:max-h-[22vh]"
           }`}
         >
           {/* Header – dramatically reduced padding */}
@@ -163,11 +163,11 @@ const EventCardNewDesignComponent = ({
                     e.stopPropagation();
                     onOpenTickets(item.event_id);
                   }}
-                  className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold shadow-md hover:bg-primary/90"
+                  className="flex-shrink-0 inline-flex items-center gap-0.5 sm:gap-1 rounded-full bg-primary border-2 border-primary ring-2 ring-primary/30 shadow-md shadow-primary/20 px-4 sm:px-5 py-0.5 text-[9px] sm:text-[10px] font-bold text-primary-foreground hover:bg-primary/90 hover:ring-primary/50 hover:shadow-lg hover:shadow-primary/40 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  <Ticket className="h-3 w-3 text-primary-foreground" />
+                  <Ticket className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-primary-foreground" />
                   <span className="text-primary-foreground whitespace-nowrap">
-                    Tickets
+                    Get Tickets
                   </span>
                 </button>
               )}
