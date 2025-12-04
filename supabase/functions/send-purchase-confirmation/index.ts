@@ -109,9 +109,9 @@ function baseUrl(): string {
 }
 
 function getLogoUrl(): string {
-  // Always use Liventix logo only (small, neat size)
-  // Use Supabase storage URL for better email client compatibility (publicly accessible, no CORS issues)
-  return 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix Official/org-images/liventix-logo.png';
+  // Liventix logo from Supabase Storage (displayed at 60px for crisp retina rendering)
+  // Logo without spaces in filename for better email client compatibility
+  return 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png';
 }
 
 function formatDate(value?: string) {
@@ -229,7 +229,7 @@ function HiddenPreheader({ text }: { text?: string }) {
   );
 }
 
-function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBrowserUrl }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string; viewInBrowserUrl?: string }) {
+function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText }: { children: any; orgInfo?: OrgInfo; eventInfo?: EventInfo; preheaderText?: string }) {
   const supportEmail = orgInfo?.supportEmail || "support@liventix.tech";
   const currentYear = new Date().getFullYear();
   const homepageUrl = baseUrl(); // Always use Liventix homepage
@@ -306,53 +306,32 @@ function BaseEmailLayout({ children, orgInfo, eventInfo, preheaderText, viewInBr
                   {},
                   React.createElement(
                     "td",
-                    { style: { textAlign: "left", verticalAlign: "middle" } },
+                    { style: { textAlign: "center", verticalAlign: "middle" } },
                     React.createElement(
                       "a",
-                      { href: homepageUrl, style: { textDecoration: "none", display: "flex", alignItems: "center" } },
-                      // Logo image with explicit dimensions for email clients (small, neat size)
+                      { href: homepageUrl, style: { textDecoration: "none", display: "inline-block" } },
+                      // Logo image - centered, width only, height auto for natural aspect ratio
                       React.createElement("img", {
                         src: logoUrl,
                         alt: "Liventix",
-                        className: "logo responsive-img",
+                        width: "100",
                         style: { 
-                          height: "28px", 
-                          maxWidth: "120px", 
-                          width: "auto", 
+                          width: "100px", 
+                          height: "auto",
+                          maxWidth: "100%",
                           display: "block",
                           border: "0",
                           outline: "none",
                           textDecoration: "none",
-                          margin: "0",
+                          margin: "0 auto",
                           padding: "0",
+                          borderRadius: "12px",
                         },
-                        width: "120",
-                        height: "28",
                         loading: "eager",
                         decoding: "sync",
                       }),
-                      // Text fallback if image doesn't load (email clients often block images)
-                      React.createElement("span", {
-                        style: {
-                          display: "none",
-                          fontSize: "16px",
-                          fontWeight: "600",
-                          color: "#0f172a",
-                          marginLeft: "8px",
-                        },
-                        className: "logo-text-fallback",
-                      }, "Liventix"),
                     ),
                   ),
-                  viewInBrowserUrl ? React.createElement(
-                    "td",
-                    { style: { textAlign: "right", verticalAlign: "middle" } },
-                    React.createElement(
-                      "a",
-                      { href: viewInBrowserUrl, style: { fontSize: "12px", color: "#64748b", textDecoration: "none" } },
-                      "View in browser",
-                    ),
-                  ) : null,
                 ),
               ),
             ),
@@ -447,14 +426,11 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo, ticketPdfUrl, 
   const calendarUrl = eventDateObj ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${eventDateObj.toISOString().replace(/[-:]/g, '').split('.')[0]}Z%2F${new Date(eventDateObj.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=${encodeURIComponent(`${title} at ${eventInfo?.venue || data.eventLocation}`)}&location=${encodeURIComponent(eventInfo?.venue || data.eventLocation)}` : undefined;
   const transferUrl = `${baseUrl()}/tickets/transfer/${data.orderId}`;
 
-  // Generate view in browser URL
-  const viewInBrowserUrl = `${baseUrl()}/tickets/view/${data.orderId}`;
-
   // Skip PDF-first hero for RSVP-only
   if (isRsvp) {
     return React.createElement(
       BaseEmailLayout,
-      { orgInfo, eventInfo, preheaderText, viewInBrowserUrl },
+      { orgInfo, eventInfo, preheaderText },
       // RSVP version (simplified)
       React.createElement(
         "div",
@@ -476,7 +452,7 @@ function PurchaseConfirmationTemplate({ data, orgInfo, eventInfo, ticketPdfUrl, 
   // Full purchase confirmation template (PDF-first approach)
   return React.createElement(
     BaseEmailLayout,
-    { orgInfo, eventInfo, preheaderText, viewInBrowserUrl },
+    { orgInfo, eventInfo, preheaderText },
     // 1. CONFIRMATION HERO (PDF-first)
     React.createElement(
       "div",

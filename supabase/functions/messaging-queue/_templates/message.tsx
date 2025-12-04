@@ -183,22 +183,17 @@ export const MessageEmail = ({
                 <tr>
                   <td align="center">
                     <Img
-                      src={org_logo_url || 'https://yieslxnrfeqchbcmgavz.supabase.co/liventix-logo.png'}
-                      width={180}
-                      height={60}
+                      src={org_logo_url || 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png'}
+                      width={100}
                       alt={org_name || 'Liventix'}
-                      style={logo}
+                      style={{...logo, width: '100px', height: 'auto', maxWidth: '100%', borderRadius: '12px'}}
                     />
                   </td>
                 </tr>
-                {(webview_url || subject) && (
+                {subject && (
                   <tr>
                     <td align="center" style={{ paddingTop: 8 }}>
-                      {webview_url ? (
-                        <Link href={webview_url} style={viewOnlineLink}>View online</Link>
-                      ) : (
-                        <Text style={subjectLine}>{subject}</Text>
-                      )}
+                      <Text style={subjectLine}>{subject}</Text>
                     </td>
                   </tr>
                 )}

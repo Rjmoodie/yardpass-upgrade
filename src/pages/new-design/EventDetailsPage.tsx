@@ -1002,7 +1002,8 @@ export function EventDetailsPageIntegrated() {
       </div>
 
       {/* Floating Pill CTA - Premium floating ticket button above bottom nav */}
-      {event.ticketTiers && event.ticketTiers.length > 0 && (() => {
+      {/* Hide when checkout sheet is open to avoid duplicate floating buttons */}
+      {!ticketModalOpen && event.ticketTiers && event.ticketTiers.length > 0 && (() => {
         const isPast = event.start_at ? new Date(event.start_at) < new Date() : false;
         const lowestPriceCents = Math.min(...event.ticketTiers.map(t => t.price * 100));
         

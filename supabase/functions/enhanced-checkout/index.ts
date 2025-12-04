@@ -276,35 +276,129 @@ serve(async (req) => {
     if (pricing.totalCents === 0) {
       console.log('[enhanced-checkout] Free tickets - skipping Stripe, issuing directly');
       
-      // Issue tickets directly
-      const { data: ticketResult, error: ticketError } = await supabaseService.rpc(
-        'issue_tickets_from_holds',
+      // Create order for free tickets (use "paid" status since $0 = paid in full)
+      const { data: freeOrder, error: freeOrderError } = await supabaseService
+        .from('orders')
+        .insert({
+          user_id: orderData.user_id,
+          event_id: orderData.event_id,
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          subtotal_cents: 0,
+          fees_cents: 0,
+          total_cents: 0,
+          currency: currency ?? 'USD',
+          contact_email: normalizedEmail,
+          contact_name: contactName,
+          contact_phone: contactPhone,
+          hold_ids: reservationResult.hold_ids ?? [],
+        })
+        .select()
+        .single();
+
+      if (freeOrderError || !freeOrder) {
+        console.error('[enhanced-checkout] Failed to create free order:', freeOrderError);
+        throw new Error('Failed to create order');
+      }
+
+      // Create order items
+      const freeOrderItems = normalizedItems.map((item) => ({
+        order_id: freeOrder.id,
+        tier_id: item.tier_id,
+        quantity: item.quantity,
+        unit_price_cents: 0,
+      }));
+
+      await supabaseService.from('order_items').insert(freeOrderItems);
+
+      // Convert holds to tickets using ensure-tickets pattern
+      const { error: ticketError } = await supabaseService.rpc(
+        'convert_holds_to_tickets',
         {
           p_hold_ids: reservationResult.hold_ids ?? [],
-          p_order_id: orderId,
+          p_order_id: freeOrder.id,
         }
       );
 
       if (ticketError) {
-        console.error('[enhanced-checkout] Failed to issue free tickets:', ticketError);
-        throw new Error(`Failed to issue tickets: ${ticketError.message}`);
+        console.warn('[enhanced-checkout] convert_holds_to_tickets failed, trying direct insert:', ticketError);
+        // Fallback: directly insert tickets
+        for (const item of normalizedItems) {
+          for (let i = 0; i < item.quantity; i++) {
+            await supabaseService.from('tickets').insert({
+              order_id: freeOrder.id,
+              tier_id: item.tier_id,
+              user_id: orderData.user_id,
+              event_id: orderData.event_id,
+              status: 'issued',
+            });
+          }
+        }
       }
 
-      // Update order status to completed
+      // Release the holds (they're now converted to tickets)
       await supabaseService
-        .from('orders')
-        .update({ status: 'completed' })
-        .eq('id', orderId);
+        .from('ticket_holds')
+        .update({ status: 'converted' })
+        .in('id', reservationResult.hold_ids ?? []);
+
+      // Get issued ticket IDs for confirmation email
+      const { data: issuedTickets } = await supabaseService
+        .from('tickets')
+        .select('id')
+        .eq('order_id', freeOrder.id);
+
+      const ticketIds = (issuedTickets || []).map((t: any) => t.id);
+      const totalQuantity = normalizedItems.reduce((sum, i) => sum + i.quantity, 0);
+
+      // 📧 Send RSVP/free ticket confirmation email
+      try {
+        const tierNames = normalizedItems.map(item => {
+          const tier = tierMap.get(item.tier_id);
+          return tier?.name || 'Free Admission';
+        }).join(', ');
+
+        const emailPayload = {
+          orderId: freeOrder.id,
+          customerName: contactName || 'Guest',
+          customerEmail: normalizedEmail,
+          eventTitle: event.title || 'Event',
+          eventDate: event.start_at ? new Date(event.start_at).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+          }) : 'TBA',
+          eventLocation: event.location || event.venue || 'TBA',
+          ticketType: tierNames,
+          quantity: totalQuantity,
+          totalAmount: 0, // Free tickets
+          ticketIds,
+          eventId: orderData.event_id,
+          isRsvpOnly: true, // Flag for RSVP-style email
+        };
+
+        console.log('[enhanced-checkout] Sending RSVP confirmation email:', { orderId: freeOrder.id, email: normalizedEmail });
+        
+        await supabaseService.functions.invoke('send-purchase-confirmation', {
+          body: emailPayload
+        });
+      } catch (emailErr) {
+        console.warn('[enhanced-checkout] Failed to send confirmation email (non-critical):', emailErr);
+        // Don't fail the request if email fails
+      }
 
       // Return success for free tickets (no client_secret needed)
       return new Response(
         JSON.stringify({
           success: true,
           free_order: true,
-          order_id: orderId,
+          order_id: freeOrder.id,
           checkout_session_id: checkoutSessionId,
-          tickets_issued: ticketResult?.tickets_issued ?? normalizedItems.reduce((sum, i) => sum + i.quantity, 0),
-          message: 'Free tickets issued successfully',
+          tickets_issued: totalQuantity,
+          message: 'Free tickets claimed successfully!',
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

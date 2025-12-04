@@ -109,7 +109,7 @@ export function PurchaseSuccessHandler() {
               .eq('message', successDescription)
               .gte('created_at', new Date(Date.now() - 30000).toISOString())
               .limit(1)
-              .single();
+              .maybeSingle(); // Use maybeSingle() to avoid error when no rows found
 
             // Only create if no duplicate exists
             if (!existing) {

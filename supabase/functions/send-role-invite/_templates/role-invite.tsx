@@ -42,11 +42,10 @@ export const RoleInviteEmail = ({
           {/* Logo/Header */}
           <Section style={header}>
             <Img
-              src="https://liventix.tech/liventix-logo-full.png"
-              width="180"
-              height="60"
+              src="https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png"
+              width="100"
               alt="Liventix"
-              style={logo}
+              style={{...logo, width: '100px', height: 'auto', maxWidth: '100%', borderRadius: '12px'}}
             />
           </Section>
 

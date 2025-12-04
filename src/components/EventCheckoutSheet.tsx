@@ -543,13 +543,13 @@ export default function EventCheckoutSheet({
 
       if (error) throw error;
 
-      // ✅ Handle FREE TICKETS - no payment needed
+      // ✅ Handle FREE TICKETS - no payment needed, just close modal
       if (data?.free_order) {
         toast({
-          title: "Tickets Claimed!",
+          title: "Tickets Claimed! 🎉",
           description: `${data.tickets_issued || 'Your'} free ticket${(data.tickets_issued || 0) > 1 ? 's have' : ' has'} been added to your account.`,
         });
-        onSuccess();
+        // Don't call onSuccess() - no checkout redirect needed for free tickets
         onClose();
         return;
       }
@@ -1246,24 +1246,41 @@ function MobileStickyBar({
 }) {
   if (step !== "select") return null;
 
-  // Account for bottom navigation bar (~70px) + safe area
+  // Floating pill style - matches EventTicketCta
   return (
-    <div className="fixed bottom-[70px] inset-x-0 z-50 bg-background border-t border-border/40 p-4 lg:hidden lg:bottom-0">
-      <Button
-        size="lg"
-        className="w-full h-12 text-base font-semibold rounded-xl"
-        onClick={onPrimaryClick}
-        disabled={!canProceed || creating}
-      >
-        {creating ? (
-          <>
-            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            Processing...
-          </>
-        ) : (
-          <>Continue · ${(totalCents / 100).toFixed(2)}</>
-        )}
-      </Button>
+    <div className="fixed inset-x-0 bottom-0 z-[60] pointer-events-none lg:hidden">
+      <div className="mx-auto max-w-2xl px-4 mb-[calc(var(--bottom-nav-safe,4.5rem)+0.75rem)] pointer-events-auto">
+        <div className="flex items-center justify-between gap-3 rounded-full bg-card/95 dark:bg-card/90 border border-border/70 dark:border-white/15 shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-4 py-2.5 backdrop-blur-xl">
+          {/* Left: Total */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] text-muted-foreground/80">Total</span>
+                <span className="text-base font-semibold tabular-nums">
+                  ${(totalCents / 100).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: CTA button */}
+          <Button
+            size="sm"
+            className="rounded-full px-5 py-2 text-sm font-semibold shadow-sm"
+            onClick={onPrimaryClick}
+            disabled={!canProceed || creating}
+          >
+            {creating ? (
+              <>
+                <div className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                Processing
+              </>
+            ) : (
+              "Continue"
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

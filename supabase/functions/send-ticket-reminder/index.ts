@@ -95,8 +95,8 @@ async function fetchEmailContext(eventId: string) {
 
 // Import email template components (inline for edge function)
 function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgInfo }) {
-  const baseUrl = SUPABASE_URL?.replace('/rest/v1', '') || 'https://liventix.tech';
-  const logoUrl = `${baseUrl}/liventix-logo.png`;
+  // Use Supabase Storage for consistent logo across all email templates
+  const logoUrl = 'https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png';
   
   return React.createElement('html', {},
     React.createElement('head', {},
@@ -107,7 +107,7 @@ function BaseEmailLayout({ children, orgInfo }: { children: any; orgInfo?: OrgIn
       React.createElement('div', { style: { maxWidth: '600px', margin: '0 auto', backgroundColor: '#ffffff' } },
         // Header
         React.createElement('div', { style: { backgroundColor: '#1a1a1a', padding: '24px', textAlign: 'center' } },
-          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'Liventix', style: { height: '60px', maxWidth: '300px' } })
+          React.createElement('img', { src: logoUrl, alt: orgInfo?.name || 'Liventix', width: '100', style: { width: '100px', height: 'auto', maxWidth: '100%', borderRadius: '12px' } })
         ),
         // Content
         React.createElement('div', { style: { padding: '32px 24px' } }, children),

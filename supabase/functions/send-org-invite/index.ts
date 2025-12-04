@@ -198,8 +198,10 @@ const handler = withCORS(async (req) => {
               background: white;
             }
             .logo-section img {
-              height: 48px;
-              width: auto;
+              width: 100px;
+              height: auto;
+              max-width: 100%;
+              border-radius: 12px;
             }
             .header { 
               background: #fafafa;
@@ -256,7 +258,7 @@ const handler = withCORS(async (req) => {
         <body>
           <div class="container">
             <div class="logo-section">
-              <img src="https://liventix.tech/liventix-logo-full.png" alt="Liventix" />
+              <img src="https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png" alt="Liventix" width="100" style="width:100px;height:auto;max-width:100%;border-radius:12px;" />
             </div>
             <div class="header">
               <h1>You're invited to join ${organization.name}</h1>

@@ -99,7 +99,7 @@ serve(async (req) => {
                     <div style="padding:32px 16px; background-color:#f4f4f5;">
                       <div style="max-width:520px; margin:0 auto; background-color:#ffffff; border-radius:20px; overflow:hidden; box-shadow:0 18px 30px rgba(15,23,42,0.08);">
                         <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding:28px 32px; text-align:center;">
-                          <img src="https://liventix.tech/liventix-logo.png" alt="Liventix" style="height:40px; width:auto; margin-bottom:12px;" />
+                          <img src="https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png" alt="Liventix" width="100" style="width:100px; height:auto; max-width:100%; border-radius:12px; margin-bottom:12px;" />
                           <div style="font-size:13px; color:#94a3b8; letter-spacing:0.08em; text-transform:uppercase;">Secure ticket access</div>
                         </div>
                         <div style="padding:32px;">

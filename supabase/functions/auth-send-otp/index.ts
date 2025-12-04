@@ -119,12 +119,17 @@ serve(async (req) => {
       <tr>
         <td align="center">
           <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden;">
-            <!-- Header -->
+            <!-- Header with Logo -->
             <tr>
-              <td align="center" style="background:#fafafa; border:1px solid #e2e8f0; padding:32px;">
-                <h1 style="margin:0; color:#0f172a; font-size:24px; font-weight:700; letter-spacing:-0.5px;">YardPass</h1>
-                <p style="margin:8px 0 0 0; color:#64748b; font-size:15px;">
-                  Live Ticket Events
+              <td align="center" style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding:32px;">
+                <img 
+                  src="https://yieslxnrfeqchbcmgavz.supabase.co/storage/v1/object/public/Liventix%20Official/org-images/logo.png" 
+                  alt="Liventix" 
+                  width="100" 
+                  style="display:block; width:100px; height:auto; max-width:100%; margin:0 auto; border-radius:12px;"
+                />
+                <p style="margin:12px 0 0 0; color:#94a3b8; font-size:14px; letter-spacing:0.5px;">
+                  Live Event Tickets
                 </p>
               </td>
             </tr>

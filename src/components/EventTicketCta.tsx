@@ -10,12 +10,11 @@ export function EventTicketCta({ lowestPriceCents, onClick }: EventTicketCtaProp
   const price = (lowestPriceCents / 100).toFixed(2);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+    <div className="fixed inset-x-0 bottom-0 z-[60] pointer-events-none">
       <div
         className="
-          mx-auto max-w-xl px-4
+          mx-auto max-w-2xl px-4
           mb-[calc(var(--bottom-nav-safe,4.5rem)+0.75rem)]
-          md:mb-6
           pointer-events-auto
         "
       >
