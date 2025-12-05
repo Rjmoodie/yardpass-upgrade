@@ -176,20 +176,94 @@ serve(async (req) => {
 
     console.log('Post created successfully:', post);
 
-    // Fetch from the new view for rich metadata
-    const { data: fullPost, error: viewError } = await supabaseClient
-      .from('event_posts_with_meta')
-      .select('*')
-      .eq('id', post.id)
+    // Fetch author details for feed format
+    const { data: author } = await supabaseClient
+      .from('user_profiles')
+      .select('display_name, username, photo_url')
+      .eq('user_id', user.id)
       .maybeSingle();
 
-    if (viewError) {
-      console.error('Error fetching post metadata:', viewError);
-      // Fallback to basic post data
-      return createResponse({ data: post }, 201);
+    // Fetch event details
+    const { data: eventDetails } = await supabaseClient
+      .from('events')
+      .select('id, title, cover_image_url')
+      .eq('id', event_id)
+      .maybeSingle();
+
+    // Fetch ticket tier details if provided
+    let ticketTier = null;
+    if (finalTicketTierId) {
+      const { data: tier } = await supabaseClient
+        .from('ticket_tiers')
+        .select('id, name, badge_label')
+        .eq('id', finalTicketTierId)
+        .maybeSingle();
+      
+      if (tier) {
+        ticketTier = {
+          id: tier.id,
+          name: tier.name,
+          badge_label: tier.badge_label,
+        };
+      }
     }
 
-    return createResponse({ data: fullPost }, 201);
+    // Transform to FeedItemPost format (matches src/types/api.ts)
+    const feedPost = {
+      item_type: 'post',
+      item_id: post.id,
+      event_id: event_id,
+      created_at_ts: new Date().getTime(),
+      
+      author: {
+        id: user.id,
+        display_name: author?.display_name || 'Anonymous',
+        username: author?.username || null,
+        photo_url: author?.photo_url || null,
+      },
+      
+      content: {
+        text: processedText,
+        media: (media_urls || []).map((url: string) => {
+          const isVideo = url.startsWith('mux:');
+          const playbackId = isVideo ? url.slice(4) : null;
+          
+          return {
+            url,
+            type: isVideo ? 'video' : 'image',
+            thumbnail: isVideo 
+              ? `https://image.mux.com/${playbackId}/thumbnail.jpg`
+              : url,
+          };
+        }),
+      },
+      
+      metrics: {
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        views: 0,
+        viewer_has_liked: false,
+      },
+      
+      event: eventDetails ? {
+        id: eventDetails.id,
+        title: eventDetails.title,
+        cover_image_url: eventDetails.cover_image_url,
+      } : null,
+      
+      processing: {
+        status: 'ready', // Assume ready for now, Mux webhook will update if processing
+      },
+      
+      ticket_tier: ticketTier,
+    };
+
+    return createResponse({ 
+      success: true,
+      post: feedPost,
+      event_title: eventDetails?.title || ''
+    }, 201);
 
   } catch (error) {
     console.error('Error in posts-create function:', error);

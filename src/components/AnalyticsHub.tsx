@@ -1066,6 +1066,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
           orders:orders!orders_event_id_fkey(
             id,
             total_cents,
+            subtotal_cents,
             status,
             order_items:order_items!order_items_order_id_fkey(quantity)
           ),
@@ -1089,6 +1090,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
       type OrderRecord = {
         id: string;
         total_cents?: number;
+        subtotal_cents?: number;
         status: string;
         order_items?: Array<{ quantity: number }>;
       };
@@ -1117,7 +1119,8 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
       const mapped =
         (events as EventWithAnalytics[] || []).map(event => {
           const paidOrders = (event.orders || []).filter(o => o.status === 'paid');
-          const totalRevenue = paidOrders.reduce((sum, order) => sum + (order.total_cents || 0), 0);
+          // ✅ Use subtotal_cents (net revenue - what organizer receives)
+          const netRevenue = paidOrders.reduce((sum, order) => sum + (order.subtotal_cents || order.total_cents || 0), 0);
           const totalTickets = paidOrders.reduce(
             (sum, order) =>
               sum + (order.order_items?.reduce((s, item) => s + (item.quantity || 0), 0) || 0),
@@ -1133,7 +1136,7 @@ const EventAnalyticsComponent: React.FC<{ selectedOrg: string; dateRange: string
             title: event.title,
             startDate: event.start_at,
             endDate: event.end_at,
-            revenue: totalRevenue, // cents
+            revenue: netRevenue, // ✅ Net revenue in cents
             ticketsSold: totalTickets,
             attendees: attendeesCount,
             engagements: totalEngagements,

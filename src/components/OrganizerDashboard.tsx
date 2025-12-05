@@ -337,26 +337,121 @@ export default function OrganizerDashboard() {
     if (!selectedOrgId) return;
     setLoadingEvents(true);
     try {
-      const { data, error } = await supabase
+      // ✅ Step 1: Fetch events
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select(`
-          id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id,
-          orders:orders!orders_event_id_fkey(total_cents, status),
-          tickets:tickets!tickets_event_id_fkey(status)
-        `)
+        .select('id, title, created_at, start_at, end_at, venue, category, cover_image_url, description, city, visibility, owner_context_type, owner_context_id')
         .eq('owner_context_type', 'organization')
         .eq('owner_context_id', selectedOrgId)
         .order('start_at', { ascending: false });
 
-      if (error) throw error;
+      if (eventsError) throw eventsError;
+      if (!eventsData) {
+        setEvents([]);
+        setLoadingEvents(false);
+        return;
+      }
+
+      const eventIds = eventsData.map(e => e.id);
+
+      // ✅ Step 2: Fetch ALL orders for these events
+      // Using range(0, 9999) to override PostgREST default pagination
+      const { data: ordersData, error: ordersError, count } = await supabase
+        .from('orders')
+        .select('id, event_id, total_cents, subtotal_cents, status, user_id', { count: 'exact' })
+        .in('event_id', eventIds)
+        .range(0, 9999);  // Override default pagination limit
+
+      if (ordersError) {
+        console.error('❌ [OrganizerDashboard] Error fetching orders:', ordersError);
+        throw ordersError;
+      }
+
+      console.log('✅ [OrganizerDashboard] Orders total count:', count);
+      console.log('🔍 [OrganizerDashboard] Raw orders data:', ordersData);
+      console.log('🔍 [OrganizerDashboard] Orders by status:', {
+        paid: ordersData?.filter(o => o.status === 'paid').length,
+        pending: ordersData?.filter(o => o.status === 'pending').length,
+        total: ordersData?.length
+      });
+
+      // ✅ Step 3: Fetch ALL tickets for these events
+      const { data: ticketsData, error: ticketsError } = await supabase
+        .from('tickets')
+        .select('id, event_id, status')
+        .in('event_id', eventIds)
+        .range(0, 9999);  // Override default pagination limit
+
+      if (ticketsError) throw ticketsError;
+
+      // ✅ Step 4: Fetch event views using RPC (analytics schema not directly accessible)
+      const { data: viewsData, error: viewsError } = await supabase
+        .rpc('get_event_views', { event_ids: eventIds });
+
+      if (viewsError) {
+        console.warn('⚠️ [OrganizerDashboard] Views fetch failed:', viewsError);
+        // Non-fatal, continue with 0 views
+      }
+
+      console.log('📊 [OrganizerDashboard] Views data:', viewsData?.length || 0, 'events with views');
+
+      // ✅ Step 5: Group orders, tickets, and views by event
+      const ordersByEvent = new Map<string, any[]>();
+      const ticketsByEvent = new Map<string, any[]>();
+      const viewsByEvent = new Map<string, number>();
+
+      ordersData?.forEach(order => {
+        if (!ordersByEvent.has(order.event_id)) {
+          ordersByEvent.set(order.event_id, []);
+        }
+        ordersByEvent.get(order.event_id)!.push(order);
+      });
+
+      ticketsData?.forEach(ticket => {
+        if (!ticketsByEvent.has(ticket.event_id)) {
+          ticketsByEvent.set(ticket.event_id, []);
+        }
+        ticketsByEvent.get(ticket.event_id)!.push(ticket);
+      });
+
+      // Map views by event (RPC returns {event_id, view_count})
+      viewsData?.forEach((row: any) => {
+        viewsByEvent.set(row.event_id, row.view_count || 0);
+      });
+
+      // ✅ Step 6: Combine data
+      const data = eventsData.map(event => ({
+        ...event,
+        orders: ordersByEvent.get(event.id) || [],
+        tickets: ticketsByEvent.get(event.id) || [],
+        views: viewsByEvent.get(event.id) || 0  // ✅ Include views
+      }));
+
+      console.log('✅ [OrganizerDashboard] Fetched events:', eventsData.length);
+      console.log('✅ [OrganizerDashboard] Fetched orders:', ordersData?.length);
+      console.log('✅ [OrganizerDashboard] Fetched tickets:', ticketsData?.length);
+      console.log('✅ [OrganizerDashboard] Fetched views:', viewsByEvent.size, 'events with views');
 
       const transformed: Event[] = (data || []).map(e => {
         // Type the nested arrays properly
-        type OrderRecord = { status: string; total_cents?: number };
+        type OrderRecord = { status: string; total_cents?: number; subtotal_cents?: number };
         type TicketRecord = { status: string };
         
         const paidOrders = (e.orders as OrderRecord[] || []).filter(o => o.status === 'paid');
-        const revenue = paidOrders.reduce((sum: number, o) => sum + (o.total_cents || 0), 0) / 100;
+        
+        // 🔍 DEBUG: Log what we're receiving
+        console.log('🔍 [OrganizerDashboard] Event:', e.title);
+        console.log('🔍 [OrganizerDashboard] Total orders received:', (e.orders as OrderRecord[] || []).length);
+        console.log('🔍 [OrganizerDashboard] Paid orders:', paidOrders.length);
+        console.log('🔍 [OrganizerDashboard] Order details:', paidOrders.map(o => ({
+          subtotal: o.subtotal_cents,
+          total: o.total_cents,
+          status: o.status
+        })));
+        
+        // ✅ Use subtotal_cents (net revenue - what organizer receives)
+        const revenue = paidOrders.reduce((sum: number, o) => sum + (o.subtotal_cents || o.total_cents || 0), 0) / 100;
+        console.log('🔍 [OrganizerDashboard] Calculated revenue:', revenue);
         
         const issuedTickets = (e.tickets as TicketRecord[] || []).filter(
           t => t.status === 'issued' || t.status === 'transferred' || t.status === 'redeemed'
@@ -371,9 +466,9 @@ export default function OrganizerDashboard() {
           date: e.start_at,
           attendees,
           revenue,
-          views: 0,
-          likes: 0,
-          shares: 0,
+          views: (e as any).views || 0,  // ✅ From analytics query
+          likes: 0,  // TODO: Fetch from event_reactions
+          shares: 0,  // TODO: Fetch from event_reactions
           tickets_sold,
           capacity: 0,
           conversion_rate: 0,
@@ -538,7 +633,19 @@ export default function OrganizerDashboard() {
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchScopedEventsRef.current(); // Use ref for initial fetch
+    
+    // ✅ Force refresh auth session to pick up latest org memberships
+    (async () => {
+      try {
+        const { error } = await supabase.auth.refreshSession();
+        if (error) console.warn('⚠️ Session refresh failed:', error);
+        else console.log('✅ Session refreshed for org:', selectedOrgId);
+      } catch (err) {
+        console.warn('⚠️ Session refresh error:', err);
+      }
+      // Fetch events after session refresh
+      fetchScopedEventsRef.current();
+    })();
 
     if (!selectedOrgId) return;
     

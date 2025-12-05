@@ -2,141 +2,207 @@
  * Feature Flags Configuration
  * 
  * Centralized feature flag management for gradual rollouts and A/B testing.
- * 
- * Usage:
- * import { featureFlags } from '@/config/featureFlags';
- * 
- * if (featureFlags.messaging.enabled) {
- *   // Show messaging UI
- * }
- */
-
-interface FeatureFlag {
-  enabled: boolean;
-  description: string;
-  rolloutPercent?: number; // Future: gradual rollout 0-100
-}
-
-interface FeatureFlags {
-  messaging: FeatureFlag & {
-    rateLimitEnabled: boolean; // Enable 200 msg/hour limit
-  };
-  socialGraph: FeatureFlag & {
-    blocking: boolean;
-    privateAccounts: boolean;
-  };
-  // Add more features as needed
-}
-
-/**
- * Check if feature is enabled via environment variable override.
- * Useful for testing in development.
+ * Uses PostHog for flag evaluation (or falls back to local overrides in dev).
  * 
  * @example
- * localStorage.setItem('feature_messaging', 'true');
+ * ```typescript
+ * import { isFeatureEnabled } from '@/config/featureFlags';
+ * 
+ * if (isFeatureEnabled('feed.optimistic-posting')) {
+ *   // Use new optimized path
+ * } else {
+ *   // Use old path
+ * }
+ * ```
  */
-function isFeatureEnabledLocally(featureName: string): boolean | null {
-  if (typeof window === 'undefined') return null;
+
+import posthog from 'posthog-js';
+
+export interface FeatureFlags {
+  // Feed optimizations
+  'feed.optimistic-posting': boolean;
+  'feed.realtime-posts': boolean;
+  'feed.background-revalidation': boolean;
+  'feed.processing-indicators': boolean;
   
-  const localFlag = localStorage.getItem(`feature_${featureName}`);
-  if (localFlag === 'true') return true;
-  if (localFlag === 'false') return false;
-  return null;
+  // Other feature flags (add as needed)
+  // 'messaging.realtime': boolean;
+  // 'events.ai-recommendations': boolean;
 }
 
 /**
- * Main feature flags configuration.
- * 
- * HOW TO ENABLE A FEATURE:
- * 1. Change `enabled: false` to `enabled: true`
- * 2. Deploy code
- * 3. Test in staging
- * 4. Roll out to production
- * 
- * OR for local testing:
- * localStorage.setItem('feature_messaging', 'true');
+ * Local overrides for development
+ * Set localStorage.setItem('featureFlags', JSON.stringify({ ... }))
  */
-export const featureFlags: FeatureFlags = {
-  /**
-   * Direct Messaging System
-   * 
-   * Status: Backend deployed, frontend ready
-   * Required: Database migration 20251111000001_create_messaging_system.sql must be applied
-   * 
-   * Rollout Plan:
-   * - Phase 1: Internal testing (set enabled: true locally)
-   * - Phase 2: Beta users (enable via feature flag)
-   * - Phase 3: General availability
-   */
-  messaging: {
-    enabled: isFeatureEnabledLocally('messaging') ?? true, // ✅ ENABLED
-    description: 'Direct messaging between users and organizers',
-    rateLimitEnabled: false, // Enable if spam/abuse occurs
-  },
-
-  /**
-   * Social Graph Features
-   * 
-   * Status: Fully deployed and active
-   * Required: Migration 20251111000000_add_follow_safety_layer.sql applied
-   */
-  socialGraph: {
-    enabled: true,
-    description: 'Following system for users, organizers, and events',
-    blocking: isFeatureEnabledLocally('blocking') ?? true, // ✅ Live
-    privateAccounts: isFeatureEnabledLocally('privateAccounts') ?? true, // ✅ Live
-  },
-};
-
-/**
- * Helper: Check if a feature is enabled.
- * Centralizes feature flag logic including local overrides.
- * 
- * @example
- * if (isFeatureEnabled('messaging')) {
- *   // Show messaging button
- * }
- */
-export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
-  const localOverride = isFeatureEnabledLocally(feature);
-  if (localOverride !== null) return localOverride;
+function getLocalOverrides(): Partial<FeatureFlags> {
+  if (typeof window === 'undefined') return {};
   
-  return featureFlags[feature]?.enabled ?? false;
+  try {
+    const stored = localStorage.getItem('featureFlags');
+    if (stored) {
+      return JSON.parse(stored) as Partial<FeatureFlags>;
+    }
+  } catch (error) {
+    console.warn('[FeatureFlags] Failed to parse local overrides:', error);
+  }
+  
+  return {};
 }
 
 /**
- * Helper: Check if a nested feature flag is enabled.
+ * Check if a feature is enabled for the current user
+ * 
+ * Priority:
+ * 1. Local overrides (dev only)
+ * 2. PostHog remote flags
+ * 3. Default value (false)
+ * 
+ * @param flag - Feature flag key
+ * @param userId - Optional user ID for targeting
+ * @returns true if feature is enabled
  * 
  * @example
- * if (isNestedFeatureEnabled('socialGraph', 'blocking')) {
- *   // Show block button
- * }
+ * ```typescript
+ * // Basic usage
+ * const optimisticEnabled = isFeatureEnabled('feed.optimistic-posting');
+ * 
+ * // With user ID for targeting
+ * const realtimeEnabled = isFeatureEnabled('feed.realtime-posts', user?.id);
+ * ```
  */
-export function isNestedFeatureEnabled(
-  parent: keyof FeatureFlags,
-  child: string
+export function isFeatureEnabled(
+  flag: keyof FeatureFlags,
+  userId?: string
 ): boolean {
-  const localOverride = isFeatureEnabledLocally(`${parent}_${child}`);
-  if (localOverride !== null) return localOverride;
-  
-  const parentFlag = featureFlags[parent];
-  if (!parentFlag?.enabled) return false;
-  
-  return (parentFlag as any)[child] ?? false;
+  // Development: Check local overrides first
+  if (import.meta.env.DEV) {
+    const overrides = getLocalOverrides();
+    if (flag in overrides) {
+      const enabled = overrides[flag] ?? false;
+      console.log(`[FeatureFlags] ${flag}: ${enabled ? 'ON' : 'OFF'} (local override)`);
+      return enabled;
+    }
+  }
+
+  // Production: Check PostHog
+  try {
+    const enabled = posthog.isFeatureEnabled(flag);
+    
+    if (import.meta.env.DEV) {
+      console.log(`[FeatureFlags] ${flag}: ${enabled ? 'ON' : 'OFF'}`, { userId });
+    }
+    
+    return enabled ?? false;
+  } catch (error) {
+    console.warn(`[FeatureFlags] Failed to check flag ${flag}:`, error);
+    return false;
+  }
 }
 
 /**
- * HOW TO TEST A FEATURE LOCALLY:
+ * Get feature flag variant for A/B testing
  * 
- * 1. Open browser console
- * 2. Run: localStorage.setItem('feature_messaging', 'true')
- * 3. Refresh page
- * 4. Feature is now enabled!
+ * @param flag - Feature flag key
+ * @returns variant string or boolean
  * 
- * To disable:
- * localStorage.removeItem('feature_messaging')
- * 
- * To see all local overrides:
- * Object.keys(localStorage).filter(k => k.startsWith('feature_'))
+ * @example
+ * ```typescript
+ * const variant = getFeatureVariant('feed.algorithm');
+ * if (variant === 'chronological') {
+ *   // Show chronological feed
+ * } else if (variant === 'ai-ranked') {
+ *   // Show AI-ranked feed
+ * }
+ * ```
  */
+export function getFeatureVariant(
+  flag: keyof FeatureFlags
+): string | boolean {
+  try {
+    return posthog.getFeatureFlag(flag);
+  } catch (error) {
+    console.warn(`[FeatureFlags] Failed to get variant for ${flag}:`, error);
+    return false;
+  }
+}
 
+/**
+ * Enable a feature flag locally (dev only)
+ * 
+ * @param flag - Feature flag key
+ * @param enabled - Enable or disable
+ * 
+ * @example
+ * ```typescript
+ * // In browser console or dev tools
+ * import { setLocalFeatureFlag } from '@/config/featureFlags';
+ * setLocalFeatureFlag('feed.optimistic-posting', true);
+ * ```
+ */
+export function setLocalFeatureFlag(
+  flag: keyof FeatureFlags,
+  enabled: boolean
+): void {
+  if (!import.meta.env.DEV) {
+    console.warn('[FeatureFlags] Local overrides only available in development');
+    return;
+  }
+
+  const overrides = getLocalOverrides();
+  overrides[flag] = enabled;
+  
+  try {
+    localStorage.setItem('featureFlags', JSON.stringify(overrides));
+    console.log(`[FeatureFlags] Set ${flag} = ${enabled} (local override)`);
+  } catch (error) {
+    console.error('[FeatureFlags] Failed to save local override:', error);
+  }
+}
+
+/**
+ * Clear all local feature flag overrides
+ */
+export function clearLocalFeatureFlags(): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.removeItem('featureFlags');
+    console.log('[FeatureFlags] Cleared all local overrides');
+  } catch (error) {
+    console.error('[FeatureFlags] Failed to clear overrides:', error);
+  }
+}
+
+/**
+ * Get all feature flags and their current values
+ * Useful for debugging and admin dashboards
+ */
+export function getAllFeatureFlags(): Record<keyof FeatureFlags, boolean> {
+  const flags: Partial<Record<keyof FeatureFlags, boolean>> = {};
+  
+  const flagKeys: Array<keyof FeatureFlags> = [
+    'feed.optimistic-posting',
+    'feed.realtime-posts',
+    'feed.background-revalidation',
+    'feed.processing-indicators',
+  ];
+  
+  for (const flag of flagKeys) {
+    flags[flag] = isFeatureEnabled(flag);
+  }
+  
+  return flags as Record<keyof FeatureFlags, boolean>;
+}
+
+// Expose to window for debugging (dev only)
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as any).__featureFlags = {
+    isEnabled: isFeatureEnabled,
+    getVariant: getFeatureVariant,
+    setLocal: setLocalFeatureFlag,
+    clearLocal: clearLocalFeatureFlags,
+    getAll: getAllFeatureFlags,
+  };
+  
+  console.log('💡 Feature flags available via window.__featureFlags');
+}

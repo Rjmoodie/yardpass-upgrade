@@ -10,6 +10,9 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { removePostFromFeedCache } from '@/features/feed/utils/optimisticUpdates';
+import { feedQueryKeys } from '@/features/feed/utils/queryKeys';
 import { FeedFilter } from '@/components/FeedFilter';
 import { FeedGestures } from '@/components/FeedGestures';
 import { FeedKeymap } from '@/components/FeedKeymap';
@@ -204,6 +207,7 @@ export default function UnifiedFeedList() {
   const { requireAuth } = useAuthGuard();
   const { toggleLike, getOptimisticData } = useOptimisticReactions();
   const { sharePost } = useShare();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { containerProps } = FeedGestures();
@@ -756,6 +760,17 @@ export default function UnifiedFeedList() {
                       onAuthorClick={(authorId) => navigate(`/profile/${authorId}`)}
                       onCreatePost={() => handleCreatePost(item.event_id)}
                       onReport={handleReport}
+                      onDelete={item.author_id === user?.id ? () => {
+                        // ✅ Remove from cache using optimistic update (no refetch needed)
+                        const queryKey = feedQueryKeys.list({
+                          limit: 30,
+                          locations: filters.locations,
+                          categories: filters.categories,
+                          dates: filters.dates,
+                          searchRadius: filters.searchRadius,
+                        });
+                        removePostFromFeedCache(queryClient, queryKey, item.item_id);
+                      } : undefined}
                       onSoundToggle={() => {
                         registerInteraction();
                         setGlobalSoundEnabled((prev) => !prev);
@@ -887,12 +902,8 @@ export default function UnifiedFeedList() {
         onClose={() => setPostCreatorOpen(false)}
         onSuccess={() => {
           setPostCreatorOpen(false);
-          toast({
-            title: 'Success',
-            description: 'Your post has been created!',
-          });
-          // Optionally refresh the feed
-          refetch();
+          // ✅ No refetch needed - optimistic update already applied by usePostCreation
+          // Toast is already shown by mutation
         }}
       />
     </div>

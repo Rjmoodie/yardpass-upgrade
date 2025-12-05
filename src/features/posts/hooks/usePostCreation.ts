@@ -1,11 +1,28 @@
 /**
- * Hook for post creation logic
+ * Hook for post creation logic (Refactored for Option A: Post-Creation Instant)
  * 
- * Single entry point for all post creation business logic.
- * Handles media uploads, validation, and post creation.
+ * Uses React Query's useMutation for proper lifecycle management.
+ * Provides instant cache updates after post creation (no full refetch).
+ * 
+ * @example
+ * ```typescript
+ * const { createPost, isCreating } = usePostCreation({
+ *   userId: user.id,
+ *   filters: { locations: [], categories: [] },
+ *   onProgress: (index, progress) => console.log(`File ${index}: ${progress}%`)
+ * });
+ * 
+ * await createPost({
+ *   event_id: eventId,
+ *   text: 'Hello world',
+ *   ticket_tier_id: null,
+ *   files: queuedFiles,
+ * });
+ * ```
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import {
   uploadImageToSupabase,
@@ -17,7 +34,9 @@ import {
   preprocessImage,
   maybeTranscodeHeic,
 } from '../api/posts';
-import type { PostCreationData, PostCreationResult } from '@/features/posts/types';
+import { feedQueryKeys, normalizeParams, type UnifiedFeedParams } from '@/features/feed/utils/queryKeys';
+import { prependPostToFeedCache } from '@/features/feed/utils/optimisticUpdates';
+import type { PostCreationResponse } from '@/types/api';
 
 export type QueuedFile = {
   file: File;
@@ -35,12 +54,21 @@ type UploadProgressCallback = (fileIndex: number, progress: Partial<QueuedFile>)
 
 interface UsePostCreationOptions {
   userId: string;
+  filters: UnifiedFeedParams; // For query key generation
   onProgress?: UploadProgressCallback;
 }
 
-export function usePostCreation({ userId, onProgress }: UsePostCreationOptions) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface CreatePostInput {
+  event_id: string;
+  text: string;
+  ticket_tier_id?: string | null;
+  files: QueuedFile[];
+}
+
+export function usePostCreation({ userId, filters, onProgress }: UsePostCreationOptions) {
+  const queryClient = useQueryClient();
+  const params = normalizeParams(filters);
+  const queryKey = feedQueryKeys.list(params);
 
   /**
    * Upload a queue of files and return their URLs
@@ -148,64 +176,104 @@ export function usePostCreation({ userId, onProgress }: UsePostCreationOptions) 
   );
 
   /**
-   * Create a post with media uploads
+   * React Query mutation for post creation
+   * Handles uploads, post creation, and cache updates
    */
-  const createPostWithMedia = useCallback(
-    async (
-      data: PostCreationData,
-      queue: QueuedFile[]
-    ): Promise<PostCreationResult> => {
-      setIsSubmitting(true);
-      setError(null);
+  const mutation = useMutation<PostCreationResponse, Error, CreatePostInput>({
+    mutationFn: async ({ event_id, text, ticket_tier_id, files }) => {
+      console.log('📤 [usePostCreation] Starting post creation...', { event_id, fileCount: files.length });
 
-      try {
-        // Upload media files
-        const media_urls = await uploadQueue(queue, data.event_id);
+      // Step 1: Upload all media files
+      const media_urls = await uploadQueue(files, event_id);
+      
+      console.log('✅ [usePostCreation] Media uploaded:', { count: media_urls.length });
 
-        // Create post
-        const result = await createPost({
-          event_id: data.event_id,
-          text: data.text,
-          media_urls,
-          ticket_tier_id: data.ticket_tier_id,
-        });
+      // Step 2: Create post with uploaded media
+      const response = await createPost({
+        event_id,
+        text,
+        media_urls,
+        ticket_tier_id,
+      });
 
-        // Dispatch custom event for feed refresh
-        window.dispatchEvent(
-          new CustomEvent('postCreated', {
-            detail: {
-              eventId: data.event_id,
-              postId: result.id,
-              eventTitle: result.event_title,
-              timestamp: new Date().toISOString(),
-            },
-          })
-        );
+      console.log('✅ [usePostCreation] Post created:', response.post.item_id);
 
-        return {
-          success: true,
-          post_id: result.id,
-        };
-      } catch (err: any) {
-        const errorMessage = err?.message || 'Unable to create post. Please try again.';
-        setError(errorMessage);
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      } finally {
-        setIsSubmitting(false);
-      }
+      return response;
     },
-    [uploadQueue]
-  );
+
+    // ✅ OPTION A: Post-creation instant cache update
+    onSuccess: (response) => {
+      console.log('🎉 [usePostCreation] Post creation successful, updating cache');
+
+      // Instantly add to cache (no refetch needed)
+      prependPostToFeedCache(queryClient, queryKey, response.post);
+
+      // 🎯 Scroll to top to show the new post
+      setTimeout(() => {
+        const feedContainer = document.querySelector('[data-feed-container]') 
+          || document.querySelector('main') 
+          || document.querySelector('[role="main"]');
+        
+        if (feedContainer) {
+          feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+          console.log('📜 [usePostCreation] Scrolled to top to show new post');
+        } else {
+          // Fallback: scroll window
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100); // Small delay to ensure modal has closed
+
+      // Dispatch legacy event for backward compatibility
+      // TODO: Remove after EventFeed is deprecated
+      window.dispatchEvent(
+        new CustomEvent('postCreated', {
+          detail: {
+            eventId: response.post.event_id,
+            postId: response.post.item_id,
+            eventTitle: response.event_title,
+            timestamp: new Date().toISOString(),
+          },
+        })
+      );
+
+      // Show success toast
+      toast({
+        title: 'Posted! 🎉',
+        description: 'Your post is now live',
+        duration: 2000,
+      });
+
+      // Optional: Background revalidation after 5s for consistency
+      setTimeout(() => {
+        console.log('🔄 [usePostCreation] Background revalidation');
+        queryClient.invalidateQueries({ queryKey: feedQueryKeys.all });
+      }, 5000);
+    },
+
+    onError: (error) => {
+      console.error('❌ [usePostCreation] Post creation failed:', error);
+
+      // Show error toast
+      toast({
+        title: 'Failed to create post',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+
+    onSettled: () => {
+      console.log('✅ [usePostCreation] Mutation settled');
+    },
+  });
 
   return {
-    createPost: createPostWithMedia,
+    createPost: mutation.mutate,
+    createPostAsync: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    error: mutation.error,
+    reset: mutation.reset,
+    // Expose upload queue for advanced usage
     uploadQueue,
-    isSubmitting,
-    error,
-    reset: () => setError(null),
   };
 }
 

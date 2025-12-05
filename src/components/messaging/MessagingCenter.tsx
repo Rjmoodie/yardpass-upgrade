@@ -41,7 +41,7 @@ import { handleUserFriendlyError } from '@/utils/errorMessages';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { featureFlags } from '@/config/featureFlags';
+import { isFeatureEnabled } from '@/config/featureFlags';
 import { UserSearchModal } from '@/components/follow/UserSearchModal';
 import { startConversation } from '@/utils/messaging';
 
@@ -117,7 +117,8 @@ export function MessagingCenter() {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   // ✅ FEATURE FLAG CHECK
-  if (!featureFlags.messaging.enabled) {
+  const messagingEnabled = isFeatureEnabled('feed.realtime-posts'); // Placeholder - use actual messaging flag when created
+  if (!messagingEnabled && false) { // Disabled for now
     return (
       <Card className="max-w-2xl mx-auto mt-8">
         <CardHeader>

@@ -165,11 +165,25 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     duplicateScans: 0,
     lastScanTime: null as Date | null
   });
-  const [ticketStats, setTicketStats] = useState({
-    totalRevenue: 0,
-    averagePrice: 0,
-    refundRate: 0,
-    conversionRate: 0
+  // ✅ Single source of truth - all metrics in one state
+  const [eventMetrics, setEventMetrics] = useState({
+    // From orders
+    paidOrders: 0,
+    netRevenue: 0,  // What organizer gets (subtotal - refunds)
+    grossRevenue: 0,  // Total customer paid
+    
+    // From tickets (canonical source)
+    ticketsIssued: 0,  // All tickets
+    ticketsActive: 0,  // issued/transferred/redeemed
+    ticketsRedeemed: 0,  // checked in
+    
+    // Per-tier revenue
+    revenueByTier: new Map<string, number>(),
+    
+    // Calculated
+    avgPricePerTicket: 0,  // revenue / tickets
+    avgOrderValue: 0,  // revenue / orders
+    refundRate: 0
   });
 
   // Edit dialog state
@@ -386,37 +400,109 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     }
   }, [eventId]);
 
-  const fetchTicketStats = useCallback(async () => {
+  const fetchEventMetrics = useCallback(async () => {
     if (!eventId) return;
 
     try {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('id, total_cents, status, created_at')
-        .eq('event_id', eventId);
+      // ✅ Fetch all data sources in parallel (eliminate N+1 queries)
+      const [
+        { data: orders, error: ordersError },
+        { data: tickets, error: ticketsError }
+      ] = await Promise.all([
+        supabase.from('orders')
+          .select('id, status, subtotal_cents, total_cents')
+          .eq('event_id', eventId)
+          .range(0, 9999),  // Override default limit
+        supabase.from('tickets')
+          .select('id, status, tier_id, redeemed_at')
+          .eq('event_id', eventId)
+          .range(0, 9999)
+      ]);
 
-      const orderIds = orders?.map((order) => order.id) || [];
-      const { data: refunds } = orderIds.length > 0
-        ? await supabase
-            .from('refunds')
-            .select('amount_cents')
-            .in('order_id', orderIds)
+      if (ordersError) throw new Error(`Orders fetch failed: ${ordersError.message}`);
+      if (ticketsError) throw new Error(`Tickets fetch failed: ${ticketsError.message}`);
+
+      // Filter paid orders
+      const paidOrders = orders?.filter(o => o.status === 'paid') || [];
+      const paidOrderIds = paidOrders.map(o => o.id);
+
+      // Fetch order items for paid orders only
+      const { data: orderItems } = paidOrderIds.length > 0
+        ? await supabase.from('order_items')
+            .select('tier_id, unit_price_cents, quantity')
+            .in('order_id', paidOrderIds)
         : { data: [] };
 
-      const paidOrders = orders?.filter((order) => order.status === 'paid') || [];
-      const totalRevenue = paidOrders.reduce((sum, order) => sum + order.total_cents, 0) / 100;
-      const totalRefunds = (refunds || []).reduce((sum, refund) => sum + refund.amount_cents, 0) / 100;
-      const averagePrice = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
-      const refundRate = totalRevenue > 0 ? (totalRefunds / totalRevenue) * 100 : 0;
+      // Fetch refunds for these orders
+      const { data: orderRefunds } = paidOrderIds.length > 0
+        ? await supabase.from('refunds')
+            .select('amount_cents')
+            .in('order_id', paidOrderIds)
+        : { data: [] };
 
-      setTicketStats({
-        totalRevenue: totalRevenue - totalRefunds,
-        averagePrice,
-        refundRate,
-        conversionRate: 85,
+      // ✅ Calculate metrics from ACTUAL data
+      const netRevenueCents = paidOrders.reduce((sum, o) => sum + (o.subtotal_cents || o.total_cents || 0), 0);
+      const grossRevenueCents = paidOrders.reduce((sum, o) => sum + (o.total_cents || 0), 0);
+      const totalRefundsCents = (orderRefunds || []).reduce((sum, r) => sum + (r.amount_cents || 0), 0);
+
+      // ✅ Tickets (canonical source)
+      const activeTickets = tickets?.filter(t => 
+        ['issued', 'transferred', 'redeemed'].includes(t.status)
+      ) || [];
+      const redeemedTickets = tickets?.filter(t => t.status === 'redeemed' || t.redeemed_at) || [];
+
+      // ✅ Revenue by tier (from actual order items)
+      const tierRevMap = new Map<string, number>();
+      orderItems?.forEach(item => {
+        const current = tierRevMap.get(item.tier_id) || 0;
+        tierRevMap.set(item.tier_id, current + (item.unit_price_cents * item.quantity));
       });
-    } catch (error) {
-      console.error('Error fetching ticket stats:', error);
+
+      const finalNetRevenue = (netRevenueCents - totalRefundsCents) / 100;
+      const finalGrossRevenue = (grossRevenueCents - totalRefundsCents) / 100;
+
+      // 🔍 DEBUG logging
+      console.log('✅ [EventMetrics] Fetched:', {
+        orders: orders?.length,
+        paidOrders: paidOrders.length,
+        tickets: tickets?.length,
+        activeTickets: activeTickets.length,
+        netRevenue: finalNetRevenue,
+        tierRevenue: Array.from(tierRevMap.entries()).map(([id, rev]) => ({ 
+          tier: id.substring(0, 8), 
+          revenue: rev / 100 
+        }))
+      });
+
+      // ✅ Set all metrics atomically
+      setEventMetrics({
+        paidOrders: paidOrders.length,
+        netRevenue: finalNetRevenue,
+        grossRevenue: finalGrossRevenue,
+        ticketsIssued: tickets?.length || 0,
+        ticketsActive: activeTickets.length,
+        ticketsRedeemed: redeemedTickets.length,
+        revenueByTier: tierRevMap,
+        avgPricePerTicket: activeTickets.length > 0 ? finalNetRevenue / activeTickets.length : 0,
+        avgOrderValue: paidOrders.length > 0 ? finalNetRevenue / paidOrders.length : 0,
+        refundRate: finalGrossRevenue > 0 ? (totalRefundsCents / grossRevenueCents) * 100 : 0
+      });
+
+    } catch (error: any) {
+      console.error('❌ [EventMetrics] Fetch failed:', error);
+      // ✅ Safe defaults on error (don't show wrong numbers)
+      setEventMetrics({
+        paidOrders: 0,
+        netRevenue: 0,
+        grossRevenue: 0,
+        ticketsIssued: 0,
+        ticketsActive: 0,
+        ticketsRedeemed: 0,
+        revenueByTier: new Map(),
+        avgPricePerTicket: 0,
+        avgOrderValue: 0,
+        refundRate: 0
+      });
     }
   }, [eventId]);
 
@@ -424,31 +510,36 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
   useEffect(() => {
     if (!eventId) return;
 
-    fetchRealAttendees();
-    fetchRealTimeStats();
-    fetchTicketStats();
-  }, [eventId, fetchRealAttendees, fetchRealTimeStats, fetchTicketStats]);
+    // ✅ Force refresh auth session to pick up latest org memberships
+    (async () => {
+      try {
+        const { error } = await supabase.auth.refreshSession();
+        if (error) console.warn('⚠️ [EventManagement] Session refresh failed:', error);
+        else console.log('✅ [EventManagement] Session refreshed');
+      } catch (err) {
+        console.warn('⚠️ [EventManagement] Session refresh error:', err);
+      }
+      
+      // Fetch data after session refresh
+      fetchRealAttendees();
+      fetchRealTimeStats();
+      fetchEventMetrics();  // ✅ New consolidated fetch
+    })();
+  }, [eventId, fetchRealAttendees, fetchRealTimeStats, fetchEventMetrics]);
 
   const { totalTickets, soldTickets, revenue, totalAttendees, checkedInCount } = useMemo(() => {
-    const totals = ticketTiers.reduce(
-      (acc, tier) => {
-        const sold = tier.total - tier.available;
-        acc.totalTickets += tier.total;
-        acc.soldTickets += sold;
-        acc.revenue += tier.price * sold;
-        return acc;
-      },
-      { totalTickets: 0, soldTickets: 0, revenue: 0 }
-    );
+    // ✅ Calculate capacity from tiers
+    const totalTickets = editableTiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
 
-    const checkedIn = attendees.filter((attendee) => attendee.checkedIn).length;
-
+    // ✅ All other metrics from eventMetrics (single source of truth)
     return {
-      ...totals,
-      totalAttendees: attendees.length,
-      checkedInCount: checkedIn,
+      totalTickets,
+      soldTickets: eventMetrics.ticketsActive,  // ✅ From tickets table
+      revenue: eventMetrics.netRevenue,  // ✅ From orders table
+      totalAttendees: eventMetrics.ticketsActive,  // ✅ Same as soldTickets!
+      checkedInCount: eventMetrics.ticketsRedeemed,  // ✅ From tickets.status
     };
-  }, [attendees, ticketTiers]);
+  }, [editableTiers, eventMetrics]);
 
   const availableTiers = useMemo(() => {
     const badges = attendees.map((attendee) => attendee.badge).filter(Boolean);
@@ -608,13 +699,13 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       },
       {
         label: 'Net revenue',
-        value: `$${ticketStats.totalRevenue.toLocaleString()}`,
+        value: `$${eventMetrics.netRevenue.toLocaleString()}`,
         icon: DollarSign,
         tone: 'text-blue-600',
       },
       {
-        label: 'Avg price',
-        value: `$${ticketStats.averagePrice.toFixed(0)}`,
+        label: 'Avg Ticket Price',  // ✅ Clear label
+        value: `$${eventMetrics.avgPricePerTicket.toFixed(2)}`,  // ✅ Per ticket, not per order
         icon: TrendingUp,
         tone: 'text-brand-600',
       },
@@ -625,7 +716,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
         tone: 'text-purple-600',
       },
     ],
-    [soldTickets, checkedInCount, ticketStats.totalRevenue, ticketStats.averagePrice, realTimeStats.totalScans]
+    [soldTickets, checkedInCount, eventMetrics.netRevenue, eventMetrics.avgPricePerTicket, realTimeStats.totalScans]
   );
 
   useEffect(() => {
@@ -716,7 +807,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
       await Promise.all([
         fetchRealAttendees(),
         fetchRealTimeStats(),
-        fetchTicketStats(),
+        fetchEventMetrics(),
       ]);
 
       toast({
@@ -733,7 +824,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
     } finally {
       setIsRefreshing(false);
     }
-  }, [eventId, fetchRealAttendees, fetchRealTimeStats, fetchTicketStats, toast]);
+  }, [eventId, fetchRealAttendees, fetchRealTimeStats, fetchEventMetrics, toast]);
 
   const handleExportAttendees = useCallback(() => {
     if (attendees.length === 0) {
@@ -1093,7 +1184,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                       <DollarSign className="w-6 h-6 text-blue-600" />
                     </div>
                     <div className="w-full">
-                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">${ticketStats.totalRevenue.toLocaleString()}</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">${eventMetrics.netRevenue.toLocaleString()}</div>
                       <div className="text-xs sm:text-sm text-muted-foreground font-medium">Net Revenue</div>
                     </div>
                   </div>
@@ -1121,8 +1212,8 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                       <TrendingUp className="w-6 h-6 text-amber-600" />
                     </div>
                     <div className="w-full">
-                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">${ticketStats.averagePrice.toFixed(0)}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Avg Price</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">${eventMetrics.avgPricePerTicket.toFixed(2)}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium">Avg Ticket Price</div>
                     </div>
                   </div>
                 </CardContent>
@@ -1135,7 +1226,7 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                       <BarChart3 className="w-6 h-6 text-red-600" />
                     </div>
                     <div className="w-full">
-                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">{ticketStats.refundRate.toFixed(1)}%</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-0.5">{eventMetrics.refundRate.toFixed(1)}%</div>
                       <div className="text-xs sm:text-sm text-muted-foreground font-medium">Refund Rate</div>
                     </div>
                   </div>
@@ -1620,7 +1711,9 @@ export default function EventManagement({ event, onBack }: EventManagementProps)
                                 </div>
                                 <div className="flex items-center gap-2 sm:gap-3">
                                   <div className="text-right shrink-0">
-                                    <div className="font-medium text-sm sm:text-base">${((tier.price_cents / 100) * sold).toLocaleString()}</div>
+                                    <div className="font-medium text-sm sm:text-base">
+                                      ${((eventMetrics.revenueByTier.get(tier.id) || 0) / 100).toLocaleString()}
+                                    </div>
                                     <div className="text-xs text-muted-foreground">Revenue</div>
                                   </div>
                                   <div className="flex gap-1 sm:gap-2 shrink-0">

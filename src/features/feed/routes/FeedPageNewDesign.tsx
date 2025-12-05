@@ -7,6 +7,9 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useOptimisticReactions } from '@/hooks/useOptimisticReactions';
 import { useShare } from '@/hooks/useShare';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { removePostFromFeedCache } from '@/features/feed/utils/optimisticUpdates';
+import { feedQueryKeys } from '@/features/feed/utils/queryKeys';
 import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { FeedFilter } from '@/components/FeedFilter';
@@ -59,6 +62,7 @@ export default function FeedPageNewDesign() {
   const { toast } = useToast();
   const { requireAuth, isAuthenticated } = useAuthGuard();
   const { user, profile, updateProfileOptimistic } = useAuth();
+  const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
@@ -558,8 +562,16 @@ export default function FeedPageNewDesign() {
             }
           },
           onDelete: item.author_id === user?.id ? () => {
-            // Handle delete if user is author
-            toast({ title: 'Post deleted', description: 'Your post has been removed.' });
+            // ✅ Remove from cache instantly (no refetch needed)
+            const queryKey = feedQueryKeys.list({
+              limit: 30,
+              locations: filters.locations,
+              categories: filters.categories,
+              dates: filters.dates,
+              searchRadius: filters.searchRadius,
+            });
+            removePostFromFeedCache(queryClient, queryKey, item.item_id);
+            console.log('🗑️ [Feed] Post removed from cache:', item.item_id);
           } : undefined,
           onGetTickets: item.event_id ? () => handleOpenTickets(item.event_id || '', item) : undefined,
         });
@@ -810,8 +822,8 @@ export default function FeedPageNewDesign() {
         onClose={() => setPostCreatorOpen(false)}
         onSuccess={() => {
           setPostCreatorOpen(false);
-          toast({ title: 'Success', description: 'Your post has been created!' });
-          refetch();
+          // ✅ No refetch needed - optimistic update already applied by usePostCreation
+          // Toast is already shown by mutation
         }}
       />
 

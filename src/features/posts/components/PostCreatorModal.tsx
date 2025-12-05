@@ -64,6 +64,7 @@ const IMAGE_BUCKET = 'event-media';
 const MAX_FILES = 6;
 const MAX_IMAGE_MB = 8; // hard cap for images
 const MAX_VIDEO_MB = 512; // hard cap for videos (Mux accepts large uploads; tune to your plan)
+const MAX_VIDEO_DURATION_SECONDS = 30; // ✅ 30 second max duration (like TikTok/Reels)
 const DRAFT_KEY = (uid?: string) => `liventix-post-draft:${uid || 'anon'}`;
 const LAST_EVENT_KEY = (uid?: string) => `liventix-last-event:${uid || 'anon'}`;
 
@@ -175,6 +176,36 @@ async function resolveMuxUploadToPlaybackId(
   throw new Error('Mux processing timed out');
 }
 
+/** Check video duration */
+async function checkVideoDuration(file: File): Promise<{ valid: boolean; duration: number; error?: string }> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      const duration = video.duration;
+      
+      if (duration > MAX_VIDEO_DURATION_SECONDS) {
+        resolve({
+          valid: false,
+          duration,
+          error: `Video is ${Math.round(duration)}s long. Maximum is ${MAX_VIDEO_DURATION_SECONDS}s.`,
+        });
+      } else {
+        resolve({ valid: true, duration });
+      }
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      resolve({ valid: false, duration: 0, error: 'Could not read video metadata' });
+    };
+
+    video.src = URL.createObjectURL(file);
+  });
+}
+
 /** Canvas-based image resize + recompress; preserves alpha by exporting to WebP if needed. */
 async function preprocessImage(file: File): Promise<File> {
   try {
@@ -249,9 +280,15 @@ export function PostCreatorModal({
   const imageInputId = useId();
   const videoInputId = useId();
 
-  // Use post creation hook
-  const { createPost: createPostWithMedia, isSubmitting } = usePostCreation({
+  // Use post creation hook with optimistic updates
+  const { createPostAsync, isCreating } = usePostCreation({
     userId: user?.id || '',
+    filters: {
+      locations: [],
+      categories: [],
+      dates: [],
+      limit: 30,
+    }, // Default filters - cache will update for active feed
     onProgress: (fileIndex, patch) => {
       setQueue((prev) => {
         const copy = [...prev];
@@ -262,6 +299,8 @@ export function PostCreatorModal({
       });
     },
   });
+
+  const isSubmitting = isCreating;
 
   // iOS keyboard handling - add 80px buffer for footer buttons
   const keyboardPadding = useKeyboardPadding(80);
@@ -583,6 +622,22 @@ export function PostCreatorModal({
             variant: 'destructive',
           });
           continue;
+        }
+
+        // ✅ Check video duration (30 second max)
+        if (kind === 'video') {
+          const durationCheck = await checkVideoDuration(f);
+          if (!durationCheck.valid) {
+            toast({
+              title: 'Video too long',
+              description: durationCheck.error || `Maximum video length is ${MAX_VIDEO_DURATION_SECONDS} seconds`,
+              variant: 'destructive',
+              duration: 4000,
+            });
+            continue;
+          }
+          
+          console.log(`✅ Video duration: ${Math.round(durationCheck.duration)}s (under ${MAX_VIDEO_DURATION_SECONDS}s limit)`);
         }
 
         // de-dupe by name+size
@@ -939,48 +994,30 @@ export function PostCreatorModal({
 
       const userTicket = userTickets.find((t) => t.event_id === selectedEventId);
 
-      // Use hook to create post
-      const result = await createPostWithMedia(
-        {
-          event_id: selectedEventId,
-          text: content.trim(),
-          ticket_tier_id: userTicket?.tier_id,
-        },
-        queue
-      );
-
-      if (result.success) {
-        toast({
-          title: 'Posted Successfully!',
-          description: `Your post has been shared!`,
-        });
-
-        // reset
-        setContent('');
-        clearAll();
-        if (!preselectedEventId) setSelectedEventId('');
-
-        // clear draft
-        try {
-          localStorage.removeItem(DRAFT_KEY(user?.id));
-        } catch {}
-
-        onSuccess?.();
-        onClose();
-      } else {
-        toast({
-          title: 'Post Failed',
-          description: result.error || 'Unable to create post. Please try again.',
-          variant: 'destructive',
-        });
-      }
-    } catch (err: any) {
-      console.error('Post creation failed:', err);
-      toast({
-        title: 'Post Failed',
-        description: err?.message || 'Unable to create post. Please try again.',
-        variant: 'destructive',
+      // ✅ Use new mutation-based hook (automatic cache update + toast)
+      await createPostAsync({
+        event_id: selectedEventId,
+        text: content.trim(),
+        ticket_tier_id: userTicket?.tier_id,
+        files: queue,
       });
+
+      // Success! Reset form (toast is handled by mutation)
+      setContent('');
+      clearAll();
+      if (!preselectedEventId) setSelectedEventId('');
+
+      // Clear draft
+      try {
+        localStorage.removeItem(DRAFT_KEY(user?.id));
+      } catch {}
+
+      // Notify parent & close modal
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      // Error toast is already handled by mutation.onError
+      logger.error('[PostCreatorModal] Submit error:', err);
     } finally {
       submittingRef.current = false;
     }
@@ -1207,6 +1244,11 @@ export function PostCreatorModal({
                         onKeyDown={onKeyDownComposer}
                         aria-label="Post content"
                       />
+
+                      {/* Limits info */}
+                      <div className="mt-2 text-[11px] text-muted-foreground/70 space-y-0.5">
+                        <p>📷 Images: Max {MAX_IMAGE_MB}MB • 🎥 Videos: Max {MAX_VIDEO_DURATION_SECONDS}s, {MAX_VIDEO_MB}MB</p>
+                      </div>
 
                       {/* Composer footer */}
                       <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">

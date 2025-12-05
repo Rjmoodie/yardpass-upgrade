@@ -200,19 +200,34 @@ export async function preprocessImage(file: File): Promise<File> {
 
 /**
  * Create a post via Edge Function
+ * Returns formatted post ready for feed display
  */
 export async function createPost(data: {
   event_id: string;
   text: string;
   media_urls: string[];
   ticket_tier_id?: string | null;
-}): Promise<{ id: string; event_title: string }> {
-  const { data: result, error } = await supabase.functions.invoke('posts-create', {
-    body: data,
-  });
+}): Promise<import('@/types/api').PostCreationResponse> {
+  const { data: result, error } = await supabase.functions.invoke<import('@/types/api').PostCreationResponse>(
+    'posts-create',
+    { body: data }
+  );
   
-  if (error) throw error;
+  if (error) {
+    console.error('[createPost] Edge function error:', error);
+    throw error;
+  }
   
-  return result?.data;
+  if (!result) {
+    throw new Error('No response from posts-create Edge Function');
+  }
+
+  // Runtime validation to catch API contract drift
+  if (!result.success || !result.post || result.post.item_type !== 'post') {
+    console.error('[createPost] Invalid response shape:', result);
+    throw new Error('Invalid response format from posts-create');
+  }
+  
+  return result;
 }
 

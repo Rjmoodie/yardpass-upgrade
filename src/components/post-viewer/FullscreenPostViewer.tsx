@@ -16,6 +16,8 @@ import {
   MessageCircle,
   Share2,
   Trash2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
@@ -85,6 +87,8 @@ export function FullscreenPostViewer({
   const { user, profile } = useAuth();
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true); // Start muted by default
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   
   // Swipe state for mobile
   const [swipeStart, setSwipeStart] = useState<{ x: number; y: number } | null>(null);
@@ -427,6 +431,44 @@ export function FullscreenPostViewer({
     );
   }, [post?.id, activePostId, activeEventId]);
 
+  // Toggle video sound with immediate feedback
+  const handleToggleSound = useCallback(() => {
+    const newMutedState = !videoMuted;
+    setVideoMuted(newMutedState);
+
+    // Find and control all video/mux-player elements in the container
+    requestAnimationFrame(() => {
+      if (videoContainerRef.current) {
+        const videos = videoContainerRef.current.querySelectorAll<HTMLVideoElement>('video');
+        const muxPlayers = videoContainerRef.current.querySelectorAll<any>('mux-player');
+        
+        videos.forEach(video => {
+          video.muted = newMutedState;
+          if (!newMutedState && video.paused) {
+            video.play().catch(() => {});
+          }
+        });
+
+        muxPlayers.forEach((player: any) => {
+          if (player && typeof player.muted !== 'undefined') {
+            player.muted = newMutedState;
+            if (!newMutedState && player.paused) {
+              player.play().catch(() => {});
+            }
+          }
+        });
+      }
+    });
+
+    // Haptic feedback (if available)
+    if ('vibrate' in navigator) {
+      navigator.vibrate(10);
+    }
+
+    // Log for debugging
+    console.log(`🔊 [FullscreenPostViewer] Sound ${newMutedState ? 'OFF' : 'ON'}`);
+  }, [videoMuted]);
+
   // 🎬 Smart renderMedia: VideoMedia for videos, big image for photos
   const renderMedia = useCallback((postData: Post | null) => {
     if (!postData?.media_urls || postData.media_urls.length === 0) return null;
@@ -446,7 +488,7 @@ export function FullscreenPostViewer({
     // 🎥 VIDEO → use VideoMedia player
     if (isVideo) {
       return (
-        <div className="flex h-full w-full items-center justify-center bg-black">
+        <div ref={videoContainerRef} className="flex h-full w-full items-center justify-center bg-black">
           <div className={mediaFrameCls}>
             <VideoMedia
               url={firstUrl}
@@ -458,7 +500,7 @@ export function FullscreenPostViewer({
                 text: postData.text,
               }}
               visible={true}
-              globalSoundEnabled={true}
+              globalSoundEnabled={!videoMuted}
               hideCaption={true}
               hideControls={true}
             />
@@ -483,7 +525,7 @@ export function FullscreenPostViewer({
         </div>
       </div>
     );
-  }, [activeEventId]);
+  }, [activeEventId, videoMuted]);
 
   // No key on Dialog - prevents unmount/remount on post change which would reset navigation state
   return (
@@ -720,6 +762,24 @@ export function FullscreenPostViewer({
                       aria-label="Share"
                     >
                       <Share2 className="h-4 w-4" />
+                    </button>
+
+                    {/* Sound toggle button - for video posts */}
+                    <button
+                      type="button"
+                      onClick={handleToggleSound}
+                      className={`flex items-center justify-center rounded-full p-1.5 transition-all active:scale-90 ${
+                        videoMuted 
+                          ? 'bg-white/10 text-white/60 hover:bg-white/15' 
+                          : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                      }`}
+                      aria-label={videoMuted ? "Unmute video" : "Mute video"}
+                    >
+                      {videoMuted ? (
+                        <VolumeX className="h-4 w-4" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
 

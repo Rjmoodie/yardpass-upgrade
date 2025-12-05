@@ -62,16 +62,19 @@ export function useOrganizerAnalytics() {
 
       const eventIds = events.map(e => e.id);
 
-      // Fetch ticket sales and revenue
+      // ✅ Fetch actual revenue from orders table
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('event_id, status, subtotal_cents, total_cents')
+        .in('event_id', eventIds)
+        .eq('status', 'paid');
+
+      if (ordersError) throw ordersError;
+
+      // Fetch ticket sales (for attendee count, NOT revenue)
       const { data: ticketData, error: ticketError } = await supabase
         .from('tickets')
-        .select(`
-          event_id,
-            status,
-          ticket_tiers!fk_tickets_tier_id (
-            price_cents
-          )
-        `)
+        .select('event_id, status')
         .in('event_id', eventIds);
 
       if (ticketError) throw ticketError;
@@ -116,14 +119,23 @@ export function useOrganizerAnalytics() {
         });
       });
 
-      // Process ticket data
+      // ✅ Process orders for REVENUE (actual paid amounts)
+      ordersData?.forEach(order => {
+        const analytics = analyticsMap.get(order.event_id);
+        if (analytics) {
+          // Use subtotal_cents (net revenue - what organizer receives)
+          analytics.total_revenue += (order.subtotal_cents || 0) / 100;
+        }
+      });
+
+      // Process ticket data for ATTENDEES (not revenue)
       ticketData?.forEach(ticket => {
         const analytics = analyticsMap.get(ticket.event_id);
         if (analytics) {
           analytics.total_attendees++;
           if (ticket.status === 'issued') {
             analytics.ticket_sales++;
-            analytics.total_revenue += (ticket.ticket_tiers as any)?.price_cents || 0;
+            // ✅ Revenue already calculated from orders above
           }
         }
       });

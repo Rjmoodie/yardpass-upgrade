@@ -145,12 +145,32 @@ export default function EventsPage() {
         setTicketTiers(tierData || []);
       }
 
-      // Track event view
+      // Track event view to PostHog
       capture('event_view', { 
         event_id: eventData.id,
         event_title: eventData.title,
         source: 'direct_link'
       });
+
+      // ✅ Track to Supabase user_event_interactions (where existing views are)
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        
+        if (currentUser) {
+          await supabase.schema('analytics').from('user_event_interactions').insert({
+            interaction_type: 'event_view',
+            event_id: eventData.id,
+            user_id: currentUser.id,
+            metadata: { 
+              event_title: eventData.title,
+              source: 'event_page_legacy'
+            }
+          });
+        }
+      } catch (err) {
+        // Non-blocking - analytics failure shouldn't break UX
+        console.warn('[EventsPage] Analytics tracking failed:', err);
+      }
 
     } catch (error) {
       console.error('Error loading event:', error);

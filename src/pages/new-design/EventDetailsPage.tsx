@@ -411,6 +411,24 @@ export function EventDetailsPageIntegrated() {
 
         setEvent(transformed);
 
+        // ✅ Track event view to user_event_interactions (where existing views are)
+        try {
+          if (user) {
+            await supabase.schema('analytics').from('user_event_interactions').insert({
+              interaction_type: 'event_view',
+              event_id: data.id,
+              user_id: user.id,
+              metadata: {
+                event_title: data.title,
+                source: 'event_detail_page'
+              }
+            });
+          }
+        } catch (err) {
+          // Non-blocking - don't break UX if analytics fails
+          console.warn('[EventDetailsPage] Analytics tracking failed:', err);
+        }
+
         // Update meta tags for rich share previews using shared builder
         // This ensures consistency with server-side OG rendering
         const ogPayload = buildEventOgPayload(data);
